@@ -3,9 +3,18 @@
 #include <CL/sycl.hpp>
 
 namespace blake3 {
+constexpr size_t MSG_PERMUTATION[16] = { 2, 6,  3,  10, 7, 0,  4,  13,
+                                         1, 11, 12, 5,  9, 14, 15, 8 };
 
 void
-round(sycl::uint4* const state, const sycl::uint* msg)
+round(sycl::uint4* const state, const sycl::uint* msg);
+
+void
+permute(sycl::uint* const msg);
+}
+
+void
+blake3::round(sycl::uint4* const state, const sycl::uint* msg)
 {
   sycl::uint4 mx = sycl::uint4(*(msg + 0), *(msg + 2), *(msg + 4), *(msg + 6));
   sycl::uint4 my = sycl::uint4(*(msg + 1), *(msg + 3), *(msg + 5), *(msg + 7));
@@ -56,4 +65,15 @@ round(sycl::uint4* const state, const sycl::uint* msg)
   *(state + 3) = (*(state + 3)).yzwx();
 }
 
+void
+blake3::permute(sycl::uint* const msg)
+{
+  sycl::uint permuted[16] = { 0 };
+  for (size_t i = 0; i < 16; i++) {
+    permuted[i] = *(msg + blake3::MSG_PERMUTATION[i]);
+  }
+
+  for (size_t i = 0; i < 16; i++) {
+    *(msg + i) = permuted[i];
+  }
 }
