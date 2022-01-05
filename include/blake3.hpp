@@ -45,6 +45,12 @@ parent_cv(const sycl::uint* left_cv,
           const sycl::uint* key_words,
           sycl::uint flags,
           sycl::uint* const out_cv);
+
+void
+root_cv(const sycl::uint* left_cv,
+        const sycl::uint* right_cv,
+        const sycl::uint* key_words,
+        sycl::uint* const out_cv);
 }
 
 void
@@ -243,11 +249,11 @@ blake3::chunkify(const sycl::uint* key_words,
 }
 
 void
-parent_cv(const sycl::uint* left_cv,
-          const sycl::uint* right_cv,
-          const sycl::uint* key_words,
-          sycl::uint flags,
-          sycl::uint* const out_cv)
+blake3::parent_cv(const sycl::uint* left_cv,
+                  const sycl::uint* right_cv,
+                  const sycl::uint* key_words,
+                  sycl::uint flags,
+                  sycl::uint* const out_cv)
 {
   sycl::uint block_words[16] = {
     *(left_cv + 0),  *(left_cv + 1),  *(left_cv + 2),  *(left_cv + 3),
@@ -262,4 +268,13 @@ parent_cv(const sycl::uint* left_cv,
                    blake3::BLOCK_LEN,
                    flags | blake3::PARENT,
                    out_cv);
+}
+
+void
+blake3::root_cv(const sycl::uint* left_cv,
+                const sycl::uint* right_cv,
+                const sycl::uint* key_words,
+                sycl::uint* const out_cv)
+{
+  blake3::parent_cv(left_cv, right_cv, key_words, blake3::ROOT, out_cv);
 }
