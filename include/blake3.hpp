@@ -6,11 +6,21 @@ namespace blake3 {
 constexpr size_t MSG_PERMUTATION[16] = { 2, 6,  3,  10, 7, 0,  4,  13,
                                          1, 11, 12, 5,  9, 14, 15, 8 };
 
+constexpr sycl::uint IV[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
+                               0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
+
 void
 round(sycl::uint4* const state, const sycl::uint* msg);
 
 void
 permute(sycl::uint* const msg);
+
+void
+compress(const sycl::uint* chaining_value,
+         sycl::uint* const block_words,
+         sycl::ulong counter,
+         sycl::uint block_len,
+         sycl::uint flags);
 }
 
 void
@@ -76,4 +86,55 @@ blake3::permute(sycl::uint* const msg)
   for (size_t i = 0; i < 16; i++) {
     *(msg + i) = permuted[i];
   }
+}
+
+void
+blake3::compress(const sycl::uint* chaining_value,
+                 sycl::uint* const block_words,
+                 sycl::ulong counter,
+                 sycl::uint block_len,
+                 sycl::uint flags)
+{
+  sycl::uint4 cv0 = sycl::uint4(*(chaining_value + 0),
+                                *(chaining_value + 1),
+                                *(chaining_value + 2),
+                                *(chaining_value + 3));
+  sycl::uint4 cv1 = sycl::uint4(*(chaining_value + 4),
+                                *(chaining_value + 5),
+                                *(chaining_value + 6),
+                                *(chaining_value + 7));
+
+  sycl::uint4 state[4] = { cv0,
+                           cv1,
+                           sycl::uint4(IV[0], IV[1], IV[2], IV[3]),
+                           sycl::uint4(counter & 0xffffffff,
+                                       static_cast<sycl::uint>(counter >> 32),
+                                       block_len,
+                                       flags) };
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  blake3::round(state, block_words);
+  blake3::permute(block_words);
+
+  state[0] ^= state[2];
+  state[1] ^= state[3];
+  state[2] ^= cv0;
+  state[3] ^= cv1;
 }
