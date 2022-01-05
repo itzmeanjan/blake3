@@ -310,11 +310,11 @@ blake3::root_cv(const sycl::uint* left_cv,
 
 void
 blake3::hash(sycl::queue& q,
-     const sycl::uchar* input,
-     size_t i_size,
-     size_t chunk_count,
-     size_t wg_size,
-     sycl::uchar* const digest)
+             const sycl::uchar* input,
+             size_t i_size,
+             size_t chunk_count,
+             size_t wg_size,
+             sycl::uchar* const digest)
 {
   assert(i_size == chunk_count * blake3::CHUNK_LEN);
   assert(chunk_count >= 2);
@@ -323,35 +323,38 @@ blake3::hash(sycl::queue& q,
 
   const size_t mem_size = static_cast<size_t>(blake3::BLOCK_LEN) * chunk_count;
   sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
-  const size_t mem_offset = blake3::OUT_LEN * chunk_count;
+  const size_t mem_offset = (blake3::OUT_LEN >> 2) * chunk_count;
 
-  sycl::event evt_0 =
-    q.parallel_for(sycl::nd_range<1>{ sycl::range<1>{ chunk_count },
-                                      sycl::range<1>{ wg_size } },
-                   [=](sycl::nd_item<1> it) {
-                     const size_t idx = it.get_global_linear_id();
+  sycl::event evt_0 = q.parallel_for(
+    sycl::nd_range<1>{ sycl::range<1>{ chunk_count },
+                       sycl::range<1>{ wg_size } },
+    [=](sycl::nd_item<1> it) {
+      const size_t idx = it.get_global_linear_id();
 
-                     blake3::chunkify(blake3::IV,
-                                      static_cast<sycl::ulong>(idx),
-                                      0,
-                                      input + idx * blake3::CHUNK_LEN,
-                                      mem + mem_offset + idx * blake3::OUT_LEN);
-                   });
+      blake3::chunkify(blake3::IV,
+                       static_cast<sycl::ulong>(idx),
+                       0,
+                       input + idx * blake3::CHUNK_LEN,
+                       mem + mem_offset + idx * (blake3::OUT_LEN >> 2));
+    });
 
   const size_t rounds =
     static_cast<size_t>(sycl::log2(static_cast<double>(chunk_count))) - 1;
 
   if (rounds == 0) {
-    q.submit([&](sycl::handler& h) {
+    sycl::event evt_1 = q.submit([&](sycl::handler& h) {
       h.depends_on(evt_0);
       h.single_task([=]() {
-        blake3::root_cv(mem + mem_offset + 0 * blake3::OUT_LEN,
-                        mem + mem_offset + 1 * blake3::OUT_LEN,
+        blake3::root_cv(mem + mem_offset + 0 * (blake3::OUT_LEN >> 2),
+                        mem + mem_offset + 1 * (blake3::OUT_LEN >> 2),
                         blake3::IV,
-                        mem + 1 * blake3::OUT_LEN);
-        blake3::words_to_le_bytes(mem + 1 * blake3::OUT_LEN, digest);
+                        mem + 1 * (blake3::OUT_LEN >> 2));
+        blake3::words_to_le_bytes(mem + 1 * (blake3::OUT_LEN >> 2), digest);
       });
     });
+
+    evt_1.wait();
+    sycl::free(mem, q);
 
     return;
   }
