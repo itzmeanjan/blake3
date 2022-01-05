@@ -1,6 +1,7 @@
 #pragma once
 #define SYCL_SIMPLE_SWIZZLES 1
 #include <CL/sycl.hpp>
+#include <cassert>
 
 namespace blake3 {
 constexpr size_t MSG_PERMUTATION[16] = { 2, 6,  3,  10, 7, 0,  4,  13,
@@ -8,6 +9,9 @@ constexpr size_t MSG_PERMUTATION[16] = { 2, 6,  3,  10, 7, 0,  4,  13,
 
 constexpr sycl::uint IV[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
                                0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
+
+constexpr size_t CHUNK_LEN = 1024;
+constexpr size_t OUT_LEN = 32;
 
 constexpr sycl::uint BLOCK_LEN = 64;
 constexpr sycl::uint CHUNK_START = 1 << 0;
@@ -33,7 +37,7 @@ void
 words_from_le_bytes(const sycl::uchar* input, sycl::uint* const block_words);
 
 void
-blake3::words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output);
+words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output);
 
 void
 chunkify(const sycl::uint* key_words,
@@ -54,6 +58,14 @@ root_cv(const sycl::uint* left_cv,
         const sycl::uint* right_cv,
         const sycl::uint* key_words,
         sycl::uint* const out_cv);
+
+void
+hash(sycl::queue& q,
+     const sycl::uchar* input,
+     size_t i_size,
+     size_t chunk_count,
+     size_t wg_size,
+     sycl::uchar* const digest);
 }
 
 void
@@ -294,4 +306,55 @@ blake3::root_cv(const sycl::uint* left_cv,
                 sycl::uint* const out_cv)
 {
   blake3::parent_cv(left_cv, right_cv, key_words, blake3::ROOT, out_cv);
+}
+
+void
+blake3::hash(sycl::queue& q,
+     const sycl::uchar* input,
+     size_t i_size,
+     size_t chunk_count,
+     size_t wg_size,
+     sycl::uchar* const digest)
+{
+  assert(i_size == chunk_count * blake3::CHUNK_LEN);
+  assert(chunk_count >= 2);
+  assert((chunk_count & (chunk_count - 1)) == 0);
+  assert(wg_size <= chunk_count);
+
+  const size_t mem_size = static_cast<size_t>(blake3::BLOCK_LEN) * chunk_count;
+  sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
+  const size_t mem_offset = blake3::OUT_LEN * chunk_count;
+
+  sycl::event evt_0 =
+    q.parallel_for(sycl::nd_range<1>{ sycl::range<1>{ chunk_count },
+                                      sycl::range<1>{ wg_size } },
+                   [=](sycl::nd_item<1> it) {
+                     const size_t idx = it.get_global_linear_id();
+
+                     blake3::chunkify(blake3::IV,
+                                      static_cast<sycl::ulong>(idx),
+                                      0,
+                                      input + idx * blake3::CHUNK_LEN,
+                                      mem + mem_offset + idx * blake3::OUT_LEN);
+                   });
+
+  const size_t rounds =
+    static_cast<size_t>(sycl::log2(static_cast<double>(chunk_count))) - 1;
+
+  if (rounds == 0) {
+    q.submit([&](sycl::handler& h) {
+      h.depends_on(evt_0);
+      h.single_task([=]() {
+        blake3::root_cv(mem + mem_offset + 0 * blake3::OUT_LEN,
+                        mem + mem_offset + 1 * blake3::OUT_LEN,
+                        blake3::IV,
+                        mem + 1 * blake3::OUT_LEN);
+        blake3::words_to_le_bytes(mem + 1 * blake3::OUT_LEN, digest);
+      });
+    });
+
+    return;
+  }
+
+  // for more than two chunks ( leaves ) in Merkle Tree
 }
