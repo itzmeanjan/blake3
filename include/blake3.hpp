@@ -33,6 +33,9 @@ void
 words_from_le_bytes(const sycl::uchar* input, sycl::uint* const block_words);
 
 void
+blake3::words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output);
+
+void
 chunkify(const sycl::uint* key_words,
          sycl::ulong chunk_counter,
          sycl::uint flags,
@@ -195,6 +198,20 @@ blake3::words_from_le_bytes(const sycl::uchar* input,
                          (static_cast<sycl::uint>(*(num + 2)) << 16) |
                          (static_cast<sycl::uint>(*(num + 1)) << 8) |
                          (static_cast<sycl::uint>(*(num + 0)) << 0);
+  }
+}
+
+void
+blake3::words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output)
+{
+  for (size_t i = 0; i < 8; i++) {
+    const sycl::uint num = *(input + i);
+    sycl::uchar* out_ = output + i * 4;
+
+    *(out_ + 0) = static_cast<sycl::uchar>(num & 0xff);
+    *(out_ + 1) = static_cast<sycl::uchar>((num >> 8) & 0xff);
+    *(out_ + 2) = static_cast<sycl::uchar>((num >> 16) & 0xff);
+    *(out_ + 3) = static_cast<sycl::uchar>((num >> 24) & 0xff);
   }
 }
 
