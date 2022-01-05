@@ -1,0 +1,10 @@
+[package]
+name = "blake3_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+blake3 = "1.2.0"
+
+[lib]
+crate-type = ["staticlib"]
