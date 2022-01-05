@@ -37,7 +37,7 @@ main()
     assert(*(digest + i) == *(out_h + i));
   }
 
-  std::cout << "passed blake3 tests !" << std::endl;
+  std::cout << "✅ passed blake3 tests !" << std::endl;
 
   sycl::free(in_d, q);
   sycl::free(out_h, q);
