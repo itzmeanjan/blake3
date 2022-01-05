@@ -1,6 +1,6 @@
 #pragma once
+#include "blake3.hpp"
 #include <CL/sycl.hpp>
-#include <blake3.hpp>
 
 void
 prepare_blake3_input(size_t chunk_count, sycl::uchar* const in)
