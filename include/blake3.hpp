@@ -38,6 +38,13 @@ chunkify(const sycl::uint* key_words,
          sycl::uint flags,
          const sycl::uchar* input,
          sycl::uint* const out_cv);
+
+void
+parent_cv(const sycl::uint* left_cv,
+          const sycl::uint* right_cv,
+          const sycl::uint* key_words,
+          sycl::uint flags,
+          sycl::uint* const out_cv);
 }
 
 void
@@ -233,4 +240,26 @@ blake3::chunkify(const sycl::uint* key_words,
       in_cv[7] = out_cv[7];
     }
   }
+}
+
+void
+parent_cv(const sycl::uint* left_cv,
+          const sycl::uint* right_cv,
+          const sycl::uint* key_words,
+          sycl::uint flags,
+          sycl::uint* const out_cv)
+{
+  sycl::uint block_words[16] = {
+    *(left_cv + 0),  *(left_cv + 1),  *(left_cv + 2),  *(left_cv + 3),
+    *(left_cv + 4),  *(left_cv + 5),  *(left_cv + 6),  *(left_cv + 7),
+    *(right_cv + 0), *(right_cv + 1), *(right_cv + 2), *(right_cv + 3),
+    *(right_cv + 4), *(right_cv + 5), *(right_cv + 6), *(right_cv + 7)
+  };
+
+  blake3::compress(key_words,
+                   block_words,
+                   0,
+                   blake3::BLOCK_LEN,
+                   flags | blake3::PARENT,
+                   out_cv);
 }
