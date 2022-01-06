@@ -3,7 +3,7 @@ SYCL accelerated BLAKE3 Hash Implementation
 
 ## Motivation
 
-In recent times I've been exploring data parallel programming domain using SYCL, which is a heterogeneous accelerator programming API. Few weeks back I completed writing Zk-STARK friendly [Rescue Prime Hash using SYCL](https://github.com/itzmeanjan/ff-gpu/), then I decided to take a look at BLAKE3, because blake3's algorithmic construction naturally lends itself for heavy parallelization. Compared to Rescue Prime Hash, BLAKE3 should be able to much better harness accelerator's compute capability when input size is large ( say >= 1MB ).
+In recent times I've been exploring data parallel programming domain using SYCL, which is a heterogeneous accelerator programming API. Few weeks back I completed writing Zk-STARK friendly [Rescue Prime Hash using SYCL](https://github.com/itzmeanjan/ff-gpu/), then I decided to take a look at BLAKE3, because blake3's algorithmic construction naturally lends itself for heavy parallelization. Compared to Rescue Prime Hash, BLAKE3 should be able to much better harness accelerator's compute capability when input size is relatively large ( say >= 1MB ).
 
 SYCL -backed Rescue Prime implementation shines when there are lots of (short) indepedent inputs and multiple Rescue Prime Hashes can be executed independently on each of them, because Rescue Prime can be vectorized but doesn't provide with good scope of parallelism.
 
@@ -20,7 +20,7 @@ In following implementation I heavily use SYCL2020's USM, which allows me to wor
 ## Prerequisites
 
 - Ensure you've Intel SYCL/ DPC++ compiler toolchain. See [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html) for downloading precompiled binaries.
-- If you happen to be interested in running on Nvidia GPU; you have compile Intel's open-source llvm-based SYCL implementation from source; see [here](https://intel.github.io/llvm-docs/GetStartedGuide.html#prerequisites).
+- If you happen to be interested in running on Nvidia GPU; you have to compile Intel's open-source llvm-based SYCL implementation from source; see [here](https://intel.github.io/llvm-docs/GetStartedGuide.html#prerequisites).
 - For running test cases, which uses Rust Blake3 [implementation](https://docs.rs/blake3/1.2.0/blake3) for assertion, you'll need to have Rust `cargo` toolchain installed; get that [here](https://rustup.rs/)
 - I'm on
 
@@ -48,11 +48,18 @@ Target: x86_64-unknown-linux-gnu
 Thread model: posix
 ```
 
+- I'm on `rustc` version
+
+```bash
+$ rustc --version
+rustc 1.59.0-nightly (efec54529 2021-12-04)
+```
+
 - You'll also need `make` utility for running test/ benchmark etc.
 - For formatting `C++` source consider using `clang-format` tool
 
 ```bash
-find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i --style=Mozilla
+make format
 ```
 
 ## Usage

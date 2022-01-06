@@ -10,8 +10,8 @@ all: test_blake3
 test/target/release/libblake3_test.a: test/src/lib.rs
 	cd test; cargo build --release --lib -q
 
-test/a.out: test/src/main.cpp
-	$(CXX) $(CXXFLAGS) $(SYCLFLAGS) $^ $(IFLAGS) $(LFLAGS) -o $@
+test/a.out: test/src/main.cpp include/blake3.hpp
+	$(CXX) $(CXXFLAGS) $(SYCLFLAGS) $< $(IFLAGS) $(LFLAGS) -o $@
 
 test_blake3: test/target/release/libblake3_test.a test/a.out
 	./test/a.out
@@ -19,6 +19,9 @@ test_blake3: test/target/release/libblake3_test.a test/a.out
 clean:
 	cd test; cargo clean
 	find . -name 'a.out' -o -name '*.o' | xargs rm -f
+
+format:
+	find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i --style=Mozilla
 
 bench/a.out: bench/main.cpp include/bench_blake3.hpp
 	$(CXX) $(CXXFLAGS) $(SYCLFLAGS) $(IFLAGS) $< -o $@

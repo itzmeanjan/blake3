@@ -69,7 +69,7 @@ hash(sycl::queue& q,
      sycl::cl_ulong* const ts);
 }
 
-void
+inline void
 blake3::round(sycl::uint4* const state, const sycl::uint* msg)
 {
   sycl::uint4 mx = sycl::uint4(*(msg + 0), *(msg + 2), *(msg + 4), *(msg + 6));
@@ -121,10 +121,11 @@ blake3::round(sycl::uint4* const state, const sycl::uint* msg)
   *(state + 3) = (*(state + 3)).yzwx();
 }
 
-void
+inline void
 blake3::permute(sycl::uint* const msg)
 {
   sycl::uint permuted[16] = { 0 };
+
   for (size_t i = 0; i < 16; i++) {
     permuted[i] = *(msg + blake3::MSG_PERMUTATION[i]);
   }
@@ -134,7 +135,7 @@ blake3::permute(sycl::uint* const msg)
   }
 }
 
-void
+inline void
 blake3::compress(const sycl::uint* in_cv,
                  sycl::uint* const block_words,
                  sycl::ulong counter,
@@ -185,9 +186,9 @@ blake3::compress(const sycl::uint* in_cv,
   state[0] ^= state[2];
   state[1] ^= state[3];
   // following two lines don't dictate output chaining value
-  // of this block ( or chunk ), so they can be commented out !
-  state[2] ^= cv0;
-  state[3] ^= cv1;
+  // of this block ( or chunk ), so they can be safely commented out !
+  // state[2] ^= cv0;
+  // state[3] ^= cv1;
 
   // output chaining value of this block to be used as
   // input chaining value for next block in same chunk
@@ -201,7 +202,7 @@ blake3::compress(const sycl::uint* in_cv,
   *(out_cv + 7) = state[1].w();
 }
 
-void
+inline void
 blake3::words_from_le_bytes(const sycl::uchar* input,
                             sycl::uint* const block_words)
 {
@@ -214,7 +215,7 @@ blake3::words_from_le_bytes(const sycl::uchar* input,
   }
 }
 
-void
+inline void
 blake3::words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output)
 {
   for (size_t i = 0; i < 8; i++) {
@@ -235,10 +236,14 @@ blake3::chunkify(const sycl::uint* key_words,
                  const sycl::uchar* input,
                  sycl::uint* const out_cv)
 {
-  sycl::uint in_cv[8] = { *(key_words + 0), *(key_words + 1), *(key_words + 2),
-                          *(key_words + 3), *(key_words + 4), *(key_words + 5),
-                          *(key_words + 6), *(key_words + 7) };
+  sycl::uint in_cv[8] = { 0 };
+  sycl::uint priv_out_cv[8] = { 0 };
   sycl::uint block_words[16] = { 0 };
+
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    in_cv[i] = *(key_words + i);
+  }
 
   for (size_t i = 0; i < 16; i++) {
     blake3::words_from_le_bytes(input + i * blake3::BLOCK_LEN, block_words);
@@ -250,7 +255,7 @@ blake3::chunkify(const sycl::uint* key_words,
                          chunk_counter,
                          blake3::BLOCK_LEN,
                          flags | blake3::CHUNK_START,
-                         out_cv);
+                         priv_out_cv);
         break;
       case 15:
         blake3::compress(in_cv,
@@ -261,36 +266,37 @@ blake3::chunkify(const sycl::uint* key_words,
                          out_cv);
         break;
       default:
-        blake3::compress(
-          in_cv, block_words, chunk_counter, blake3::BLOCK_LEN, flags, out_cv);
+        blake3::compress(in_cv,
+                         block_words,
+                         chunk_counter,
+                         blake3::BLOCK_LEN,
+                         flags,
+                         priv_out_cv);
     }
 
     if (i < 15) {
-      in_cv[0] = out_cv[0];
-      in_cv[1] = out_cv[1];
-      in_cv[2] = out_cv[2];
-      in_cv[3] = out_cv[3];
-      in_cv[4] = out_cv[4];
-      in_cv[5] = out_cv[5];
-      in_cv[6] = out_cv[6];
-      in_cv[7] = out_cv[7];
+#pragma unroll(4)
+      for (size_t j = 0; j < 8; j++) {
+        in_cv[j] = priv_out_cv[j];
+      }
     }
   }
 }
 
-void
+inline void
 blake3::parent_cv(const sycl::uint* left_cv,
                   const sycl::uint* right_cv,
                   const sycl::uint* key_words,
                   sycl::uint flags,
                   sycl::uint* const out_cv)
 {
-  sycl::uint block_words[16] = {
-    *(left_cv + 0),  *(left_cv + 1),  *(left_cv + 2),  *(left_cv + 3),
-    *(left_cv + 4),  *(left_cv + 5),  *(left_cv + 6),  *(left_cv + 7),
-    *(right_cv + 0), *(right_cv + 1), *(right_cv + 2), *(right_cv + 3),
-    *(right_cv + 4), *(right_cv + 5), *(right_cv + 6), *(right_cv + 7)
-  };
+  sycl::uint block_words[16] = { 0 };
+
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    block_words[i] = *(left_cv + i);
+    block_words[i + 8] = *(right_cv + i);
+  }
 
   blake3::compress(key_words,
                    block_words,
@@ -300,7 +306,7 @@ blake3::parent_cv(const sycl::uint* left_cv,
                    out_cv);
 }
 
-void
+inline void
 blake3::root_cv(const sycl::uint* left_cv,
                 const sycl::uint* right_cv,
                 const sycl::uint* key_words,
