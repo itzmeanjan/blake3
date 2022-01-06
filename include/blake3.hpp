@@ -66,7 +66,7 @@ hash(sycl::queue& q,
      size_t chunk_count,
      size_t wg_size,
      sycl::uchar* const digest,
-     uint64_t* const ts);
+     sycl::cl_ulong* const ts);
 }
 
 void
@@ -316,7 +316,7 @@ blake3::hash(sycl::queue& q,
              size_t chunk_count,
              size_t wg_size,
              sycl::uchar* const digest,
-             uint64_t* const ts)
+             sycl::cl_ulong* const ts)
 {
   assert(i_size == chunk_count * blake3::CHUNK_LEN);
   assert(chunk_count >= 2);
