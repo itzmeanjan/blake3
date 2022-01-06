@@ -1,6 +1,60 @@
 # blake3
 SYCL accelerated BLAKE3 Hash Implementation
 
+## Motivation
+
+In recent times I've been exploring data parallel programming domain using SYCL, which is a heterogeneous accelerator programming API. Few weeks back I completed writing Zk-STARK friendly [Rescue Prime Hash using SYCL](https://github.com/itzmeanjan/ff-gpu/), then I decided to take a look at BLAKE3, because blake3's algorithmic construction naturally lends itself for heavy parallelization. Compared to Rescue Prime Hash, BLAKE3 should be able to much better harness accelerator's compute capability when input size is large ( say >= 1MB ).
+
+SYCL -backed Rescue Prime implementation shines when there are lots of (short) indepedent inputs and multiple Rescue Prime Hashes can be executed independently on each of them, because Rescue Prime can be vectorized but doesn't provide with good scope of parallelism.
+
+On the other hand SYCL implementation of BLAKE3 performs good when (single) input size is >= 1MB, then each 1KB chunk of input can be compressed parallelly --- very good fit for data parallel acceleration. After that BLAKE3 is simply Binary Merkle Tree construction, which itself is highly parallelizable, _though multi-phase kernel enqueue required due to hierarchical structure of Binary Merkle Tree_.
+
+In following implementation I heavily use SYCL2020's USM, which allows me to work with much familiar pointer arithmetics. I also use SYCL's vector intrinsics ( i.e. 4 -element array of type `sycl::uint4` ) for representing/ operating on hash state of BLAKE3.
+
+> I followed BLAKE3 [specification](https://github.com/BLAKE3-team/BLAKE3-specs/blob/ac78a717924dd9e6f16f547baa916c6f71470b1a/blake3.pdf) and used Rust reference [implementation](https://github.com/BLAKE3-team/BLAKE3/blob/da4c792d8094f35c05c41c9aeb5dfe4aa67ca1ac/reference_impl/reference_impl.rs) as my guide while writing SYCL implementation.
+
+> **Note,** at this moment to keep Merkle Tree construction both easy and simple, this SYCL implementation can only generate BLAKE3 digest when input has power of 2 -many chunks, given each chunk of size 1KB. That means minimum input size should be 2KB, after that it can be increased as 4KB, 8KB ....
+
+> If input size is not >= 1MB, you probably don't want to use this implementation, because submitting job ( read enqueuing kernels ) to accelerator is not cheap and all those (required) ceremonies might defeat the whole purpose and essence of acceleration.
+
+## Prerequisites
+
+- Ensure you've Intel SYCL/ DPC++ compiler toolchain. See [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html) for downloading precompiled binaries.
+- If you happen to be interested in running on Nvidia GPU; you have compile Intel's open-source llvm-based SYCL implementation from source; see [here](https://intel.github.io/llvm-docs/GetStartedGuide.html#prerequisites).
+- For running test cases, which uses Rust Blake3 [implementation](https://docs.rs/blake3/1.2.0/blake3) for assertion, you'll need to have Rust `cargo` toolchain installed; get that [here](https://rustup.rs/)
+- I'm on
+
+```bash
+$ lsb_release -d
+Description:    Ubuntu 20.04.3 LTS
+```
+
+- Using Intel's SYCL/ DPC++ compiler version
+
+```bash
+$ dpcpp --version
+Intel(R) oneAPI DPC++/C++ Compiler 2022.0.0 (2022.0.0.20211123)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /opt/intel/oneapi/compiler/2022.0.1/linux/bin-llvm
+```
+
+- For CUDA backend on Nvidia Tesla V100 GPU, I used Intel's `clang++` version
+
+```bash
+$ clang++ --version
+clang version 14.0.0 (https://github.com/intel/llvm dc9bd3fafdeacd28528eb4b1fef3ad9b76ef3b92)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+```
+
+- You'll also need `make` utility for running test/ benchmark etc.
+- For formatting `C++` source consider using `clang-format` tool
+
+```bash
+find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i --style=Mozilla
+```
+
 ## Usage
 
 This is a header only library; so clone this repo and include [blake3.hpp](./include/blake3.hpp) in your SYCL project.
