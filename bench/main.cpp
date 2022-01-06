@@ -19,16 +19,20 @@ main(int argc, char** argv)
   std::cout << "Benchmarking BLAKE3 SYCL implementation" << std::endl
             << std::endl;
   std::cout << std::setw(24) << std::right << "input size"
-            << "\t\t" << std::setw(20) << std::right << "execution time"
+            << "\t\t" << std::setw(16) << std::right << "execution time"
             << std::endl;
 
-  for (size_t i = 1 << 10; i <= 1 << 13; i <<= 1) {
+  for (size_t i = 1 << 10; i <= 1 << 20; i <<= 1) {
     sycl::cl_ulong ts = benchmark_blake3(q, i, wg_size);
+    std::string ts_s =
+      ts >= 1e9 ? std::to_string(ts * 1e-9) + " s"
+                : ts >= 1e6 ? std::to_string(ts * 1e-6) + " ms"
+                            : ts >= 1e3 ? std::to_string(ts * 1e-3) + " us"
+                                        : std::to_string(ts) + " ns";
 
     std::cout << std::setw(20) << std::right << ((i * blake3::CHUNK_LEN) >> 20)
               << " MB"
-              << "\t\t" << std::setw(22) << std::right << ts * 1e-3 << " us"
-              << std::endl;
+              << "\t\t" << std::setw(22) << std::right << ts_s << std::endl;
   }
 
   return 0;
