@@ -65,7 +65,8 @@ hash(sycl::queue& q,
      size_t i_size,
      size_t chunk_count,
      size_t wg_size,
-     sycl::uchar* const digest);
+     sycl::uchar* const digest,
+     uint64_t* const ts);
 }
 
 void
@@ -314,7 +315,8 @@ blake3::hash(sycl::queue& q,
              size_t i_size,
              size_t chunk_count,
              size_t wg_size,
-             sycl::uchar* const digest)
+             sycl::uchar* const digest,
+             uint64_t* const ts)
 {
   assert(i_size == chunk_count * blake3::CHUNK_LEN);
   assert(chunk_count >= 2);
@@ -355,6 +357,35 @@ blake3::hash(sycl::queue& q,
 
     evt_1.wait();
     sycl::free(mem, q);
+
+    // time kernel executions only when asked to
+    //
+    // when asked, ensure queue has profiling enabled !
+    if (ts != nullptr) {
+      sycl::cl_ulong ts_ = 0;
+
+      {
+        const sycl::cl_ulong start =
+          evt_0
+            .get_profiling_info<sycl::info::event_profiling::command_start>();
+        const sycl::cl_ulong end =
+          evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+        ts_ += (end - start);
+      }
+
+      {
+        const sycl::cl_ulong start =
+          evt_1
+            .get_profiling_info<sycl::info::event_profiling::command_start>();
+        const sycl::cl_ulong end =
+          evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+        ts_ += (end - start);
+      }
+
+      *ts = ts_;
+    }
 
     return;
   }
@@ -407,4 +438,41 @@ blake3::hash(sycl::queue& q,
 
   evt_1.wait();
   sycl::free(mem, q);
+
+  // time kernel executions only when explicitly asked to
+  //
+  // when asked, ensure queue has profiling enabled, otherwise
+  // following function invocations will panic out !
+  if (ts != nullptr) {
+    sycl::cl_ulong ts_ = 0;
+
+    {
+      const sycl::cl_ulong start =
+        evt_0.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    for (auto evt : evts) {
+      const sycl::cl_ulong start =
+        evt.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    {
+      const sycl::cl_ulong start =
+        evt_1.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    *ts = ts_;
+  }
 }

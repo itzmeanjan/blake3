@@ -36,7 +36,7 @@ main()
   q.memcpy(in_d, in, i_size).wait();
 
   uint8_t* digest = rust_blake3(in, i_size);
-  blake3::hash(q, in_d, i_size, chunk_count, chunk_count, out_d);
+  blake3::hash(q, in_d, i_size, chunk_count, chunk_count, out_d, nullptr);
 
   // copy output digest to host and wait until completed !
   q.memcpy(out_h, out_d, blake3::OUT_LEN).wait();
