@@ -18,3 +18,9 @@ test_blake3: test/target/release/libblake3_test.a test/a.out
 clean:
 	cd test; cargo clean
 	find . -name 'a.out' -o -name '*.o' | xargs rm -f
+
+bench/a.out: bench/main.cpp include/bench_blake3.hpp
+	$(CXX) $(CXXFLAGS) $(SYCLFLAGS) $(IFLAGS) $< -o $@
+
+benchmark: bench/a.out
+	./bench/a.out
