@@ -4,7 +4,7 @@
 #include <random>
 
 extern "C" uint8_t*
-rust_blake3(uint8_t* input, uint64_t i_size, uint8_t* digest);
+rust_blake3(uint8_t* input, uint64_t i_size);
 
 int
 main()
@@ -16,7 +16,6 @@ main()
   const size_t i_size = chunk_count * blake3::CHUNK_LEN;
 
   uint8_t* in = static_cast<uint8_t*>(malloc(i_size));
-  uint8_t* out = static_cast<uint8_t*>(malloc(blake3::OUT_LEN));
 
   {
     std::random_device rd;
@@ -36,7 +35,7 @@ main()
   // copy input to device & wait until completed !
   q.memcpy(in_d, in, i_size).wait();
 
-  uint8_t* digest = rust_blake3(in, i_size, out);
+  uint8_t* digest = rust_blake3(in, i_size);
   blake3::hash(q, in_d, i_size, chunk_count, chunk_count, out_d);
 
   // copy output digest to host and wait until completed !
