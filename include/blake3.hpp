@@ -325,7 +325,7 @@ blake3::hash(sycl::queue& q,
   sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
   const size_t mem_offset = (blake3::OUT_LEN >> 2) * chunk_count;
 
-  sycl::event evt_0 = q.parallel_for(
+  sycl::event evt_0 = q.parallel_for<class kernelBlake3HashChunkifyLeafNodes>(
     sycl::nd_range<1>{ sycl::range<1>{ chunk_count },
                        sycl::range<1>{ wg_size } },
     [=](sycl::nd_item<1> it) {
@@ -359,5 +359,52 @@ blake3::hash(sycl::queue& q,
     return;
   }
 
-  // for more than two chunks ( leaves ) in Merkle Tree
+  std::vector<sycl::event> evts;
+  evts.reserve(rounds);
+
+  for (size_t r = 0; r < rounds; r++) {
+    sycl::event evt = q.submit([&](sycl::handler& h) {
+      if (r == 0) {
+        h.depends_on(evt_0);
+      } else {
+        h.depends_on(evts.at(r - 1));
+      }
+
+      const size_t read_offset = mem_offset >> r;
+      const size_t write_offset = read_offset >> 1;
+      const size_t glb_work_items = chunk_count >> (r + 1);
+      const size_t loc_work_items =
+        glb_work_items < wg_size ? glb_work_items : wg_size;
+
+      h.parallel_for<class kernelBlake3HashParentChaining>(
+        sycl::nd_range<1>{ sycl::range<1>{ glb_work_items },
+                           sycl::range<1>{ loc_work_items } },
+        [=](sycl::nd_item<1> it) {
+          const size_t idx = it.get_global_linear_id();
+
+          blake3::parent_cv(
+            mem + read_offset + (idx << 1) * (blake3::OUT_LEN >> 2),
+            mem + read_offset + ((idx << 1) + 1) * (blake3::OUT_LEN >> 2),
+            blake3::IV,
+            0,
+            mem + write_offset + idx * (blake3::OUT_LEN >> 2));
+        });
+    });
+    evts.push_back(evt);
+  }
+
+  sycl::event evt_1 = q.submit([&](sycl::handler& h) {
+    h.depends_on(evts.at(rounds - 1));
+    h.single_task([=]() {
+      blake3::root_cv(
+        mem + ((blake3::OUT_LEN >> 2) << 1) + 0 * (blake3::OUT_LEN >> 2),
+        mem + ((blake3::OUT_LEN >> 2) << 1) + 1 * (blake3::OUT_LEN >> 2),
+        blake3::IV,
+        mem + 1 * (blake3::OUT_LEN >> 2));
+      blake3::words_to_le_bytes(mem + 1 * (blake3::OUT_LEN >> 2), digest);
+    });
+  });
+
+  evt_1.wait();
+  sycl::free(mem, q);
 }
