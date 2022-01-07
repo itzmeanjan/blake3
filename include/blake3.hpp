@@ -82,6 +82,14 @@ g(sycl::uint4* const state,
 
 void
 round(sycl::uint4* const state, const sycl::uint* msg);
+
+void
+compress(const sycl::uint* in_cv,
+         sycl::uint* const block_words,
+         const sycl::ulong* counter,
+         const sycl::uint* block_len,
+         const sycl::uint* flags,
+         sycl::uint* const out_cv);
 }
 
 }
@@ -207,6 +215,165 @@ blake3::v2::round(sycl::uint4* const state, const sycl::uint* msg)
     blake3::v2::g(state, 3, 4, 9, 14, mx, my);
   }
   // diagonal hash state manipulation ends
+}
+
+inline void
+blake3::v2::compress(const sycl::uint* in_cv,
+                     sycl::uint* const block_words,
+                     const sycl::ulong* counter,
+                     const sycl::uint* block_len,
+                     const sycl::uint* flags,
+                     sycl::uint* const out_cv)
+{
+  // hash state of 4 chunks; to be processed in parallel
+  //
+  // See section 5.3 of Blake3 specification for understanding
+  // how this SIMD technique can be applied for wider hash state
+  sycl::uint4 state[16] = {
+    sycl::uint4(*(in_cv + 8 * 0 + 0),
+                *(in_cv + 8 * 1 + 0),
+                *(in_cv + 8 * 2 + 0),
+                *(in_cv + 8 * 3 + 0)),
+    sycl::uint4(*(in_cv + 8 * 0 + 1),
+                *(in_cv + 8 * 1 + 1),
+                *(in_cv + 8 * 2 + 1),
+                *(in_cv + 8 * 3 + 1)),
+    sycl::uint4(*(in_cv + 8 * 0 + 2),
+                *(in_cv + 8 * 1 + 2),
+                *(in_cv + 8 * 2 + 2),
+                *(in_cv + 8 * 3 + 2)),
+    sycl::uint4(*(in_cv + 8 * 0 + 3),
+                *(in_cv + 8 * 1 + 3),
+                *(in_cv + 8 * 2 + 3),
+                *(in_cv + 8 * 3 + 3)),
+    sycl::uint4(*(in_cv + 8 * 0 + 4),
+                *(in_cv + 8 * 1 + 4),
+                *(in_cv + 8 * 2 + 4),
+                *(in_cv + 8 * 3 + 4)),
+    sycl::uint4(*(in_cv + 8 * 0 + 5),
+                *(in_cv + 8 * 1 + 5),
+                *(in_cv + 8 * 2 + 5),
+                *(in_cv + 8 * 3 + 5)),
+    sycl::uint4(*(in_cv + 8 * 0 + 6),
+                *(in_cv + 8 * 1 + 6),
+                *(in_cv + 8 * 2 + 6),
+                *(in_cv + 8 * 3 + 6)),
+    sycl::uint4(*(in_cv + 8 * 0 + 7),
+                *(in_cv + 8 * 1 + 7),
+                *(in_cv + 8 * 2 + 7),
+                *(in_cv + 8 * 3 + 7)),
+    sycl::uint4(IV[0]),
+    sycl::uint4(IV[1]),
+    sycl::uint4(IV[2]),
+    sycl::uint4(IV[3]),
+    sycl::uint4(static_cast<sycl::uint>(*(counter + 0) & 0xffffffff),
+                static_cast<sycl::uint>(*(counter + 1) & 0xffffffff),
+                static_cast<sycl::uint>(*(counter + 2) & 0xffffffff),
+                static_cast<sycl::uint>(*(counter + 3) & 0xffffffff)),
+    sycl::uint4(static_cast<sycl::uint>(*(counter + 0) >> 32),
+                static_cast<sycl::uint>(*(counter + 1) >> 32),
+                static_cast<sycl::uint>(*(counter + 2) >> 32),
+                static_cast<sycl::uint>(*(counter + 3) >> 32)),
+    sycl::uint4(
+      *(block_len + 0), *(block_len + 1), *(block_len + 2), *(block_len + 3)),
+    sycl::uint4(*(flags + 0), *(flags + 1), *(flags + 2), *(flags + 3))
+  };
+
+  // round 1
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 2
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 3
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 4
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 5
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 6
+  blake3::v2::round(state, block_words);
+  blake3::permute(block_words + 16 * 0);
+  blake3::permute(block_words + 16 * 1);
+  blake3::permute(block_words + 16 * 2);
+  blake3::permute(block_words + 16 * 3);
+
+  // round 7
+  blake3::v2::round(state, block_words);
+  // message words don't need to be permuted anymore !
+
+  // prepare output chaining values for 4 chunks
+  // being compressed in parallel
+  for (size_t i = 0; i < 8; i++) {
+    state[i] ^= state[i + 8];
+  }
+
+  // writing 32 -bytes output chaining value
+  // for first chunk in this batch
+  *(out_cv + 8 * 0 + 0) = state[0].x();
+  *(out_cv + 8 * 0 + 1) = state[1].x();
+  *(out_cv + 8 * 0 + 2) = state[2].x();
+  *(out_cv + 8 * 0 + 3) = state[3].x();
+  *(out_cv + 8 * 0 + 4) = state[4].x();
+  *(out_cv + 8 * 0 + 5) = state[5].x();
+  *(out_cv + 8 * 0 + 6) = state[6].x();
+  *(out_cv + 8 * 0 + 7) = state[7].x();
+
+  // this is output chaining value of second chunk
+  // in this batch
+  *(out_cv + 8 * 1 + 0) = state[0].y();
+  *(out_cv + 8 * 1 + 1) = state[1].y();
+  *(out_cv + 8 * 1 + 2) = state[2].y();
+  *(out_cv + 8 * 1 + 3) = state[3].y();
+  *(out_cv + 8 * 1 + 4) = state[4].y();
+  *(out_cv + 8 * 1 + 5) = state[5].y();
+  *(out_cv + 8 * 1 + 6) = state[6].y();
+  *(out_cv + 8 * 1 + 7) = state[7].y();
+
+  // this is output chaining value of third chunk
+  // in this batch
+  *(out_cv + 8 * 2 + 0) = state[0].z();
+  *(out_cv + 8 * 2 + 1) = state[1].z();
+  *(out_cv + 8 * 2 + 2) = state[2].z();
+  *(out_cv + 8 * 2 + 3) = state[3].z();
+  *(out_cv + 8 * 2 + 4) = state[4].z();
+  *(out_cv + 8 * 2 + 5) = state[5].z();
+  *(out_cv + 8 * 2 + 6) = state[6].z();
+  *(out_cv + 8 * 2 + 7) = state[7].z();
+
+  // finally last output chaining value of last chunk
+  // in this batch
+  *(out_cv + 8 * 3 + 0) = state[0].w();
+  *(out_cv + 8 * 3 + 1) = state[1].w();
+  *(out_cv + 8 * 3 + 2) = state[2].w();
+  *(out_cv + 8 * 3 + 3) = state[3].w();
+  *(out_cv + 8 * 3 + 4) = state[4].w();
+  *(out_cv + 8 * 3 + 5) = state[5].w();
+  *(out_cv + 8 * 3 + 6) = state[6].w();
+  *(out_cv + 8 * 3 + 7) = state[7].w();
 }
 
 inline void
