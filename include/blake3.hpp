@@ -69,6 +69,144 @@ hash(sycl::queue& q,
      sycl::uchar* const digest,
      sycl::cl_ulong* const ts);
 }
+
+namespace v2 {
+void
+g(sycl::uint4* const state,
+  size_t a,
+  size_t b,
+  size_t c,
+  size_t d,
+  sycl::uint4 mx,
+  sycl::uint4 my);
+
+void
+round(sycl::uint4* const state, const sycl::uint* msg);
+}
+
+}
+
+inline void
+blake3::v2::g(sycl::uint4* const state,
+              size_t a,
+              size_t b,
+              size_t c,
+              size_t d,
+              sycl::uint4 mx,
+              sycl::uint4 my)
+{
+  *(state + a) = *(state + a) + *(state + b) + mx;
+  *(state + d) = sycl::rotate(*(state + d) ^ *(state + a), sycl::uint4(16));
+  *(state + c) = *(state + c) + *(state + d);
+  *(state + b) = sycl::rotate(*(state + b) ^ *(state + c), sycl::uint4(20));
+  *(state + a) = *(state + a) + *(state + b) + my;
+  *(state + d) = sycl::rotate(*(state + d) ^ *(state + a), sycl::uint4(24));
+  *(state + c) = *(state + c) + *(state + d);
+  *(state + b) = sycl::rotate(*(state + b) ^ *(state + c), sycl::uint4(25));
+}
+
+inline void
+blake3::v2::round(sycl::uint4* const state, const sycl::uint* msg)
+{
+  // column-wise hash state manipulation starts
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 0),
+                                 *(msg + 16 * 1 + 0),
+                                 *(msg + 16 * 2 + 0),
+                                 *(msg + 16 * 3 + 0));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 1),
+                                 *(msg + 16 * 1 + 1),
+                                 *(msg + 16 * 2 + 1),
+                                 *(msg + 16 * 3 + 1));
+    blake3::v2::g(state, 0, 4, 8, 12, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 2),
+                                 *(msg + 16 * 1 + 2),
+                                 *(msg + 16 * 2 + 2),
+                                 *(msg + 16 * 3 + 2));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 3),
+                                 *(msg + 16 * 1 + 3),
+                                 *(msg + 16 * 2 + 3),
+                                 *(msg + 16 * 3 + 3));
+    blake3::v2::g(state, 1, 5, 9, 13, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 4),
+                                 *(msg + 16 * 1 + 4),
+                                 *(msg + 16 * 2 + 4),
+                                 *(msg + 16 * 3 + 4));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 5),
+                                 *(msg + 16 * 1 + 5),
+                                 *(msg + 16 * 2 + 5),
+                                 *(msg + 16 * 3 + 5));
+    blake3::v2::g(state, 2, 6, 10, 14, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 6),
+                                 *(msg + 16 * 1 + 6),
+                                 *(msg + 16 * 2 + 6),
+                                 *(msg + 16 * 3 + 6));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 7),
+                                 *(msg + 16 * 1 + 7),
+                                 *(msg + 16 * 2 + 7),
+                                 *(msg + 16 * 3 + 7));
+    blake3::v2::g(state, 3, 7, 11, 15, mx, my);
+  }
+  // column-wise hash state manipulation ends
+
+  // diagonal hash state manipulation starts
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 8),
+                                 *(msg + 16 * 1 + 8),
+                                 *(msg + 16 * 2 + 8),
+                                 *(msg + 16 * 3 + 8));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 9),
+                                 *(msg + 16 * 1 + 9),
+                                 *(msg + 16 * 2 + 9),
+                                 *(msg + 16 * 3 + 9));
+    blake3::v2::g(state, 0, 5, 10, 15, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 10),
+                                 *(msg + 16 * 1 + 10),
+                                 *(msg + 16 * 2 + 10),
+                                 *(msg + 16 * 3 + 10));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 11),
+                                 *(msg + 16 * 1 + 11),
+                                 *(msg + 16 * 2 + 11),
+                                 *(msg + 16 * 3 + 11));
+    blake3::v2::g(state, 1, 6, 11, 12, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 12),
+                                 *(msg + 16 * 1 + 12),
+                                 *(msg + 16 * 2 + 12),
+                                 *(msg + 16 * 3 + 12));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 13),
+                                 *(msg + 16 * 1 + 13),
+                                 *(msg + 16 * 2 + 13),
+                                 *(msg + 16 * 3 + 13));
+    blake3::v2::g(state, 2, 7, 8, 13, mx, my);
+  }
+
+  {
+    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 14),
+                                 *(msg + 16 * 1 + 14),
+                                 *(msg + 16 * 2 + 14),
+                                 *(msg + 16 * 3 + 14));
+    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 15),
+                                 *(msg + 16 * 1 + 15),
+                                 *(msg + 16 * 2 + 15),
+                                 *(msg + 16 * 3 + 15));
+    blake3::v2::g(state, 3, 4, 9, 14, mx, my);
+  }
+  // diagonal hash state manipulation ends
 }
 
 inline void
