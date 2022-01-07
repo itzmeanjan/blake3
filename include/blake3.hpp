@@ -86,15 +86,15 @@ round(sycl::uint4* const state, const sycl::uint* msg);
 void
 compress(const sycl::uint* in_cv,
          sycl::uint* const block_words,
-         const sycl::ulong* counter,
-         const sycl::uint* block_len,
-         const sycl::uint* flags,
+         sycl::ulong counter,
+         sycl::uint block_len,
+         sycl::uint flags,
          sycl::uint* const out_cv);
 
 void
 chunkify(const sycl::uint* key_words,
-         const sycl::ulong* chunk_counter,
-         const sycl::uint* flags,
+         sycl::ulong chunk_counter,
+         sycl::uint flags,
          const sycl::uchar* input,
          sycl::uint* const out_cv);
 
@@ -233,12 +233,12 @@ blake3::v2::round(sycl::uint4* const state, const sycl::uint* msg)
   // diagonal hash state manipulation ends
 }
 
-inline void
+void
 blake3::v2::compress(const sycl::uint* in_cv,
                      sycl::uint* const block_words,
-                     const sycl::ulong* counter,
-                     const sycl::uint* block_len,
-                     const sycl::uint* flags,
+                     sycl::ulong counter,
+                     sycl::uint block_len,
+                     sycl::uint flags,
                      sycl::uint* const out_cv)
 {
   // hash state of 4 chunks; to be processed in parallel
@@ -282,17 +282,16 @@ blake3::v2::compress(const sycl::uint* in_cv,
     sycl::uint4(IV[1]),
     sycl::uint4(IV[2]),
     sycl::uint4(IV[3]),
-    sycl::uint4(static_cast<sycl::uint>(*(counter + 0) & 0xffffffff),
-                static_cast<sycl::uint>(*(counter + 1) & 0xffffffff),
-                static_cast<sycl::uint>(*(counter + 2) & 0xffffffff),
-                static_cast<sycl::uint>(*(counter + 3) & 0xffffffff)),
-    sycl::uint4(static_cast<sycl::uint>(*(counter + 0) >> 32),
-                static_cast<sycl::uint>(*(counter + 1) >> 32),
-                static_cast<sycl::uint>(*(counter + 2) >> 32),
-                static_cast<sycl::uint>(*(counter + 3) >> 32)),
-    sycl::uint4(
-      *(block_len + 0), *(block_len + 1), *(block_len + 2), *(block_len + 3)),
-    sycl::uint4(*(flags + 0), *(flags + 1), *(flags + 2), *(flags + 3))
+    sycl::uint4(static_cast<sycl::uint>((counter + 0) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 1) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 2) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 3) & 0xffffffff)),
+    sycl::uint4(static_cast<sycl::uint>((counter + 0) >> 32),
+                static_cast<sycl::uint>((counter + 1) >> 32),
+                static_cast<sycl::uint>((counter + 2) >> 32),
+                static_cast<sycl::uint>((counter + 3) >> 32)),
+    sycl::uint4(block_len),
+    sycl::uint4(flags)
   };
 
   // round 1
@@ -394,18 +393,14 @@ blake3::v2::compress(const sycl::uint* in_cv,
 
 void
 blake3::v2::chunkify(const sycl::uint* key_words,
-                     const sycl::ulong* chunk_counter,
-                     const sycl::uint* flags,
+                     sycl::ulong chunk_counter,
+                     sycl::uint flags,
                      const sycl::uchar* input,
                      sycl::uint* const out_cv)
 {
   sycl::uint in_cv[32] = { 0 };
   sycl::uint priv_out_cv[32] = { 0 };
   sycl::uint block_words[64] = { 0 };
-  sycl::uint block_len[4] = {
-    blake3::BLOCK_LEN, blake3::BLOCK_LEN, blake3::BLOCK_LEN, blake3::BLOCK_LEN
-  };
-  sycl::uint flags_[4] = { 0 };
 
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
@@ -418,41 +413,37 @@ blake3::v2::chunkify(const sycl::uint* key_words,
   }
 
   for (size_t i = 0; i < 16; i++) {
-    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
-                                  blake3::CHUNK_LEN * 0,
-                                block_words + 16 * 0);
-    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
-                                  blake3::CHUNK_LEN * 1,
-                                block_words + 16 * 1);
-    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
-                                  blake3::CHUNK_LEN * 2,
-                                block_words + 16 * 2);
-    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
-                                  blake3::CHUNK_LEN * 3,
-                                block_words + 16 * 3);
+    // prepare input for consumption into hash state
+    for (size_t j = 0; j < 4; j++) {
+      blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
+                                    blake3::CHUNK_LEN * j,
+                                  block_words + 16 * j);
+    }
 
     switch (i) {
       case 0:
-        flags_[0] = *(flags + 0) | blake3::CHUNK_START;
-        flags_[1] = *(flags + 1) | blake3::CHUNK_START;
-        flags_[2] = *(flags + 2) | blake3::CHUNK_START;
-        flags_[3] = *(flags + 3) | blake3::CHUNK_START;
-
-        blake3::v2::compress(
-          in_cv, block_words, chunk_counter, block_len, flags_, priv_out_cv);
+        blake3::v2::compress(in_cv,
+                             block_words,
+                             chunk_counter,
+                             blake3::BLOCK_LEN,
+                             flags | blake3::CHUNK_START,
+                             priv_out_cv);
         break;
       case 15:
-        flags_[0] = *(flags + 0) | blake3::CHUNK_END;
-        flags_[1] = *(flags + 1) | blake3::CHUNK_END;
-        flags_[2] = *(flags + 2) | blake3::CHUNK_END;
-        flags_[3] = *(flags + 3) | blake3::CHUNK_END;
-
-        blake3::v2::compress(
-          in_cv, block_words, chunk_counter, block_len, flags_, out_cv);
+        blake3::v2::compress(in_cv,
+                             block_words,
+                             chunk_counter,
+                             blake3::BLOCK_LEN,
+                             flags | blake3::CHUNK_END,
+                             out_cv);
         break;
       default:
-        blake3::v2::compress(
-          in_cv, block_words, chunk_counter, block_len, flags, priv_out_cv);
+        blake3::v2::compress(in_cv,
+                             block_words,
+                             chunk_counter,
+                             blake3::BLOCK_LEN,
+                             flags,
+                             priv_out_cv);
     }
 
     if (i < 15) {
@@ -486,21 +477,16 @@ blake3::v2::hash(sycl::queue& q,
     sycl::nd_range<1>{ sycl::range<1>{ chunk_count >> 2 },
                        sycl::range<1>{ wg_size } },
     [=](sycl::nd_item<1> it) {
-      const size_t idx = it.get_global_linear_id();
-      const sycl::ulong chunk_counter[4] = {
-        static_cast<sycl::ulong>(idx << 2) + 0,
-        static_cast<sycl::ulong>(idx << 2) + 1,
-        static_cast<sycl::ulong>(idx << 2) + 2,
-        static_cast<sycl::ulong>(idx << 2) + 3
-      };
-      const sycl::uint flags[4] = { 0 };
+      // because 4 chunks are clustered together
+      // and operated on using single v2::chunkify
+      // function invocation
+      const size_t idx = it.get_global_linear_id() << 2;
 
       blake3::v2::chunkify(blake3::IV,
-                           chunk_counter,
-                           flags,
-                           input + (idx << 2) * blake3::CHUNK_LEN,
-                           mem + mem_offset +
-                             (idx << 2) * (blake3::OUT_LEN >> 2));
+                           static_cast<sycl::ulong>(idx),
+                           0,
+                           input + idx * blake3::CHUNK_LEN,
+                           mem + mem_offset + idx * (blake3::OUT_LEN >> 2));
     });
 
   const size_t rounds =
