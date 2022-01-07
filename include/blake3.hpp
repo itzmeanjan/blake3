@@ -7,7 +7,7 @@
 #define BLAKE3_SIMD_LANES 4
 #else
 #if BLAKE3_SIMD_LANES != 4 || BLAKE3_SIMD_LANES != 8 || BLAKE3_SIMD_LANES != 16
-#error Unsupported many SIMD lanes requested
+#error Unsupported many SIMD lanes requested; supports only {4, 8, 16}
 #endif
 #endif
 
@@ -20,6 +20,8 @@ constexpr sycl::uint IV[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
 
 constexpr size_t CHUNK_LEN = 1024;
 constexpr size_t OUT_LEN = 32;
+
+constexpr size_t ROUNDS = 7;
 
 constexpr sycl::uint BLOCK_LEN = 64;
 constexpr sycl::uint CHUNK_START = 1 << 0;
@@ -739,10 +741,13 @@ blake3::v2::compress(const sycl::uint* in_cv,
                      sycl::uint flags,
                      sycl::uint* const out_cv)
 {
-  // hash state of 4 chunks; to be processed in parallel
+  // hash state of 4/ 8/ 16 chunks; to be processed in parallel ( clustered
+  // together )
   //
   // See section 5.3 of Blake3 specification for understanding
-  // how this SIMD technique can be applied for wider hash state
+  // how this SIMD technique can be applied for arbitrary many SIMD lanes
+
+#if BLAKE3_SIMD_LANES == 4
   sycl::uint4 state[16] = {
     sycl::uint4(*(in_cv + 8 * 0 + 0),
                 *(in_cv + 8 * 1 + 0),
@@ -791,59 +796,314 @@ blake3::v2::compress(const sycl::uint* in_cv,
     sycl::uint4(block_len),
     sycl::uint4(flags)
   };
+#elif BLAKE3_SIMD_LANES == 8
+  sycl::uint8 state[16] = {
+    sycl::uint8(*(in_cv + 8 * 0 + 0),
+                *(in_cv + 8 * 1 + 0),
+                *(in_cv + 8 * 2 + 0),
+                *(in_cv + 8 * 3 + 0),
+                *(in_cv + 8 * 4 + 0),
+                *(in_cv + 8 * 5 + 0),
+                *(in_cv + 8 * 6 + 0),
+                *(in_cv + 8 * 7 + 0)),
+    sycl::uint8(*(in_cv + 8 * 0 + 1),
+                *(in_cv + 8 * 1 + 1),
+                *(in_cv + 8 * 2 + 1),
+                *(in_cv + 8 * 3 + 1),
+                *(in_cv + 8 * 4 + 1),
+                *(in_cv + 8 * 5 + 1),
+                *(in_cv + 8 * 6 + 1),
+                *(in_cv + 8 * 7 + 1)),
+    sycl::uint8(*(in_cv + 8 * 0 + 2),
+                *(in_cv + 8 * 1 + 2),
+                *(in_cv + 8 * 2 + 2),
+                *(in_cv + 8 * 3 + 2),
+                *(in_cv + 8 * 4 + 2),
+                *(in_cv + 8 * 5 + 2),
+                *(in_cv + 8 * 6 + 2),
+                *(in_cv + 8 * 7 + 2)),
+    sycl::uint8(*(in_cv + 8 * 0 + 3),
+                *(in_cv + 8 * 1 + 3),
+                *(in_cv + 8 * 2 + 3),
+                *(in_cv + 8 * 3 + 3),
+                *(in_cv + 8 * 4 + 3),
+                *(in_cv + 8 * 5 + 3),
+                *(in_cv + 8 * 6 + 3),
+                *(in_cv + 8 * 7 + 3)),
+    sycl::uint8(*(in_cv + 8 * 0 + 4),
+                *(in_cv + 8 * 1 + 4),
+                *(in_cv + 8 * 2 + 4),
+                *(in_cv + 8 * 3 + 4),
+                *(in_cv + 8 * 4 + 4),
+                *(in_cv + 8 * 5 + 4),
+                *(in_cv + 8 * 6 + 4),
+                *(in_cv + 8 * 7 + 4)),
+    sycl::uint8(*(in_cv + 8 * 0 + 5),
+                *(in_cv + 8 * 1 + 5),
+                *(in_cv + 8 * 2 + 5),
+                *(in_cv + 8 * 3 + 5),
+                *(in_cv + 8 * 4 + 5),
+                *(in_cv + 8 * 5 + 5),
+                *(in_cv + 8 * 6 + 5),
+                *(in_cv + 8 * 7 + 5)),
+    sycl::uint8(*(in_cv + 8 * 0 + 6),
+                *(in_cv + 8 * 1 + 6),
+                *(in_cv + 8 * 2 + 6),
+                *(in_cv + 8 * 3 + 6),
+                *(in_cv + 8 * 4 + 6),
+                *(in_cv + 8 * 5 + 6),
+                *(in_cv + 8 * 6 + 6),
+                *(in_cv + 8 * 7 + 6)),
+    sycl::uint8(*(in_cv + 8 * 0 + 7),
+                *(in_cv + 8 * 1 + 7),
+                *(in_cv + 8 * 2 + 7),
+                *(in_cv + 8 * 3 + 7),
+                *(in_cv + 8 * 4 + 7),
+                *(in_cv + 8 * 5 + 7),
+                *(in_cv + 8 * 6 + 7),
+                *(in_cv + 8 * 7 + 7)),
+    sycl::uint8(IV[0]),
+    sycl::uint8(IV[1]),
+    sycl::uint8(IV[2]),
+    sycl::uint8(IV[3]),
+    sycl::uint8(static_cast<sycl::uint>((counter + 0) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 1) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 2) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 3) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 4) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 5) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 6) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 7) & 0xffffffff)),
+    sycl::uint8(static_cast<sycl::uint>((counter + 0) >> 32),
+                static_cast<sycl::uint>((counter + 1) >> 32),
+                static_cast<sycl::uint>((counter + 2) >> 32),
+                static_cast<sycl::uint>((counter + 3) >> 32),
+                static_cast<sycl::uint>((counter + 4) >> 32),
+                static_cast<sycl::uint>((counter + 5) >> 32),
+                static_cast<sycl::uint>((counter + 6) >> 32),
+                static_cast<sycl::uint>((counter + 7) >> 32)),
+    sycl::uint8(block_len),
+    sycl::uint8(flags)
+  };
+#elif BLAKE3_SIMD_LANES == 16
+  sycl::uint16 state[16] = {
+    sycl::uint16(*(in_cv + 8 * 0 + 0),
+                 *(in_cv + 8 * 1 + 0),
+                 *(in_cv + 8 * 2 + 0),
+                 *(in_cv + 8 * 3 + 0),
+                 *(in_cv + 8 * 4 + 0),
+                 *(in_cv + 8 * 5 + 0),
+                 *(in_cv + 8 * 6 + 0),
+                 *(in_cv + 8 * 7 + 0),
+                 *(in_cv + 8 * 8 + 0),
+                 *(in_cv + 8 * 9 + 0),
+                 *(in_cv + 8 * 10 + 0),
+                 *(in_cv + 8 * 11 + 0),
+                 *(in_cv + 8 * 12 + 0),
+                 *(in_cv + 8 * 13 + 0),
+                 *(in_cv + 8 * 14 + 0),
+                 *(in_cv + 8 * 15 + 0)),
+    sycl::uint16(*(in_cv + 8 * 0 + 1),
+                 *(in_cv + 8 * 1 + 1),
+                 *(in_cv + 8 * 2 + 1),
+                 *(in_cv + 8 * 3 + 1),
+                 *(in_cv + 8 * 4 + 1),
+                 *(in_cv + 8 * 5 + 1),
+                 *(in_cv + 8 * 6 + 1),
+                 *(in_cv + 8 * 7 + 1),
+                 *(in_cv + 8 * 8 + 1),
+                 *(in_cv + 8 * 9 + 1),
+                 *(in_cv + 8 * 10 + 1),
+                 *(in_cv + 8 * 11 + 1),
+                 *(in_cv + 8 * 12 + 1),
+                 *(in_cv + 8 * 13 + 1),
+                 *(in_cv + 8 * 14 + 1),
+                 *(in_cv + 8 * 15 + 1)),
+    sycl::uint16(*(in_cv + 8 * 0 + 2),
+                 *(in_cv + 8 * 1 + 2),
+                 *(in_cv + 8 * 2 + 2),
+                 *(in_cv + 8 * 3 + 2),
+                 *(in_cv + 8 * 4 + 2),
+                 *(in_cv + 8 * 5 + 2),
+                 *(in_cv + 8 * 6 + 2),
+                 *(in_cv + 8 * 7 + 2),
+                 *(in_cv + 8 * 8 + 2),
+                 *(in_cv + 8 * 9 + 2),
+                 *(in_cv + 8 * 10 + 2),
+                 *(in_cv + 8 * 11 + 2),
+                 *(in_cv + 8 * 12 + 2),
+                 *(in_cv + 8 * 13 + 2),
+                 *(in_cv + 8 * 14 + 2),
+                 *(in_cv + 8 * 15 + 2)),
+    sycl::uint16(*(in_cv + 8 * 0 + 3),
+                 *(in_cv + 8 * 1 + 3),
+                 *(in_cv + 8 * 2 + 3),
+                 *(in_cv + 8 * 3 + 3),
+                 *(in_cv + 8 * 4 + 3),
+                 *(in_cv + 8 * 5 + 3),
+                 *(in_cv + 8 * 6 + 3),
+                 *(in_cv + 8 * 7 + 3),
+                 *(in_cv + 8 * 8 + 3),
+                 *(in_cv + 8 * 9 + 3),
+                 *(in_cv + 8 * 10 + 3),
+                 *(in_cv + 8 * 11 + 3),
+                 *(in_cv + 8 * 12 + 3),
+                 *(in_cv + 8 * 13 + 3),
+                 *(in_cv + 8 * 14 + 3),
+                 *(in_cv + 8 * 15 + 3)),
+    sycl::uint16(*(in_cv + 8 * 0 + 4),
+                 *(in_cv + 8 * 1 + 4),
+                 *(in_cv + 8 * 2 + 4),
+                 *(in_cv + 8 * 3 + 4),
+                 *(in_cv + 8 * 4 + 4),
+                 *(in_cv + 8 * 5 + 4),
+                 *(in_cv + 8 * 6 + 4),
+                 *(in_cv + 8 * 7 + 4),
+                 *(in_cv + 8 * 8 + 4),
+                 *(in_cv + 8 * 9 + 4),
+                 *(in_cv + 8 * 10 + 4),
+                 *(in_cv + 8 * 11 + 4),
+                 *(in_cv + 8 * 12 + 4),
+                 *(in_cv + 8 * 13 + 4),
+                 *(in_cv + 8 * 14 + 4),
+                 *(in_cv + 8 * 15 + 4)),
+    sycl::uint16(*(in_cv + 8 * 0 + 5),
+                 *(in_cv + 8 * 1 + 5),
+                 *(in_cv + 8 * 2 + 5),
+                 *(in_cv + 8 * 3 + 5),
+                 *(in_cv + 8 * 4 + 5),
+                 *(in_cv + 8 * 5 + 5),
+                 *(in_cv + 8 * 6 + 5),
+                 *(in_cv + 8 * 7 + 5),
+                 *(in_cv + 8 * 8 + 5),
+                 *(in_cv + 8 * 9 + 5),
+                 *(in_cv + 8 * 10 + 5),
+                 *(in_cv + 8 * 11 + 5),
+                 *(in_cv + 8 * 12 + 5),
+                 *(in_cv + 8 * 13 + 5),
+                 *(in_cv + 8 * 14 + 5),
+                 *(in_cv + 8 * 15 + 5)),
+    sycl::uint16(*(in_cv + 8 * 0 + 6),
+                 *(in_cv + 8 * 1 + 6),
+                 *(in_cv + 8 * 2 + 6),
+                 *(in_cv + 8 * 3 + 6),
+                 *(in_cv + 8 * 4 + 6),
+                 *(in_cv + 8 * 5 + 6),
+                 *(in_cv + 8 * 6 + 6),
+                 *(in_cv + 8 * 7 + 6),
+                 *(in_cv + 8 * 8 + 6),
+                 *(in_cv + 8 * 9 + 6),
+                 *(in_cv + 8 * 10 + 6),
+                 *(in_cv + 8 * 11 + 6),
+                 *(in_cv + 8 * 12 + 6),
+                 *(in_cv + 8 * 13 + 6),
+                 *(in_cv + 8 * 14 + 6),
+                 *(in_cv + 8 * 15 + 6)),
+    sycl::uint16(*(in_cv + 8 * 0 + 7),
+                 *(in_cv + 8 * 1 + 7),
+                 *(in_cv + 8 * 2 + 7),
+                 *(in_cv + 8 * 3 + 7),
+                 *(in_cv + 8 * 4 + 7),
+                 *(in_cv + 8 * 5 + 7),
+                 *(in_cv + 8 * 6 + 7),
+                 *(in_cv + 8 * 7 + 7),
+                 *(in_cv + 8 * 8 + 7),
+                 *(in_cv + 8 * 9 + 7),
+                 *(in_cv + 8 * 10 + 7),
+                 *(in_cv + 8 * 11 + 7),
+                 *(in_cv + 8 * 12 + 7),
+                 *(in_cv + 8 * 13 + 7),
+                 *(in_cv + 8 * 14 + 7),
+                 *(in_cv + 8 * 15 + 7)),
+    sycl::uint16(IV[0]),
+    sycl::uint16(IV[1]),
+    sycl::uint16(IV[2]),
+    sycl::uint16(IV[3]),
+    sycl::uint16(static_cast<sycl::uint>((counter + 0) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 1) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 2) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 3) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 4) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 5) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 6) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 7) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 8) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 9) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 10) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 11) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 12) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 13) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 14) & 0xffffffff),
+                 static_cast<sycl::uint>((counter + 15) & 0xffffffff)),
+    sycl::uint16(static_cast<sycl::uint>((counter + 0) >> 32),
+                 static_cast<sycl::uint>((counter + 1) >> 32),
+                 static_cast<sycl::uint>((counter + 2) >> 32),
+                 static_cast<sycl::uint>((counter + 3) >> 32),
+                 static_cast<sycl::uint>((counter + 4) >> 32),
+                 static_cast<sycl::uint>((counter + 5) >> 32),
+                 static_cast<sycl::uint>((counter + 6) >> 32),
+                 static_cast<sycl::uint>((counter + 7) >> 32),
+                 static_cast<sycl::uint>((counter + 8) >> 32),
+                 static_cast<sycl::uint>((counter + 9) >> 32),
+                 static_cast<sycl::uint>((counter + 10) >> 32),
+                 static_cast<sycl::uint>((counter + 11) >> 32),
+                 static_cast<sycl::uint>((counter + 12) >> 32),
+                 static_cast<sycl::uint>((counter + 13) >> 32),
+                 static_cast<sycl::uint>((counter + 14) >> 32),
+                 static_cast<sycl::uint>((counter + 15) >> 32)),
+    sycl::uint16(block_len),
+    sycl::uint16(flags)
+  };
+#endif
 
-  // round 1
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
+  // apply 7 rounds of mixing
+  for (size_t i = 0; i < blake3::ROUNDS; i++) {
+    // round i = {0, 1, ... 7}
+    blake3::v2::round(state, block_words);
 
-  // round 2
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
+    if (i < 7) {
+#if BLAKE3_SIMD_LANES == 4
+      blake3::permute(block_words + 16 * 0);
+      blake3::permute(block_words + 16 * 1);
+      blake3::permute(block_words + 16 * 2);
+      blake3::permute(block_words + 16 * 3);
+#elif BLAKE3_SIMD_LANES == 8
+      blake3::permute(block_words + 16 * 0);
+      blake3::permute(block_words + 16 * 1);
+      blake3::permute(block_words + 16 * 2);
+      blake3::permute(block_words + 16 * 3);
+      blake3::permute(block_words + 16 * 4);
+      blake3::permute(block_words + 16 * 5);
+      blake3::permute(block_words + 16 * 6);
+      blake3::permute(block_words + 16 * 7);
+#elif BLAKE3_SIMD_LANES == 16
+      blake3::permute(block_words + 16 * 0);
+      blake3::permute(block_words + 16 * 1);
+      blake3::permute(block_words + 16 * 2);
+      blake3::permute(block_words + 16 * 3);
+      blake3::permute(block_words + 16 * 4);
+      blake3::permute(block_words + 16 * 5);
+      blake3::permute(block_words + 16 * 6);
+      blake3::permute(block_words + 16 * 7);
+      blake3::permute(block_words + 16 * 8);
+      blake3::permute(block_words + 16 * 9);
+      blake3::permute(block_words + 16 * 10);
+      blake3::permute(block_words + 16 * 11);
+      blake3::permute(block_words + 16 * 12);
+      blake3::permute(block_words + 16 * 13);
+      blake3::permute(block_words + 16 * 14);
+      blake3::permute(block_words + 16 * 15);
+#endif
+    }
+  }
 
-  // round 3
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
-
-  // round 4
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
-
-  // round 5
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
-
-  // round 6
-  blake3::v2::round(state, block_words);
-  blake3::permute(block_words + 16 * 0);
-  blake3::permute(block_words + 16 * 1);
-  blake3::permute(block_words + 16 * 2);
-  blake3::permute(block_words + 16 * 3);
-
-  // round 7
-  blake3::v2::round(state, block_words);
-  // message words don't need to be permuted anymore !
-
-  // prepare output chaining values for 4 chunks
+  // prepare output chaining values for 4/ 8/ 16 chunks
   // being compressed in parallel
   for (size_t i = 0; i < 8; i++) {
     state[i] ^= state[i + 8];
   }
 
+#if BLAKE3_SIMD_LANES == 4
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
   *(out_cv + 8 * 0 + 0) = state[0].x();
@@ -855,8 +1115,7 @@ blake3::v2::compress(const sycl::uint* in_cv,
   *(out_cv + 8 * 0 + 6) = state[6].x();
   *(out_cv + 8 * 0 + 7) = state[7].x();
 
-  // this is output chaining value of second chunk
-  // in this batch
+  // output chaining value of second chunk
   *(out_cv + 8 * 1 + 0) = state[0].y();
   *(out_cv + 8 * 1 + 1) = state[1].y();
   *(out_cv + 8 * 1 + 2) = state[2].y();
@@ -866,8 +1125,7 @@ blake3::v2::compress(const sycl::uint* in_cv,
   *(out_cv + 8 * 1 + 6) = state[6].y();
   *(out_cv + 8 * 1 + 7) = state[7].y();
 
-  // this is output chaining value of third chunk
-  // in this batch
+  // output chaining value of third chunk
   *(out_cv + 8 * 2 + 0) = state[0].z();
   *(out_cv + 8 * 2 + 1) = state[1].z();
   *(out_cv + 8 * 2 + 2) = state[2].z();
@@ -877,8 +1135,7 @@ blake3::v2::compress(const sycl::uint* in_cv,
   *(out_cv + 8 * 2 + 6) = state[6].z();
   *(out_cv + 8 * 2 + 7) = state[7].z();
 
-  // finally last output chaining value of last chunk
-  // in this batch
+  // output chaining value of fourth chunk
   *(out_cv + 8 * 3 + 0) = state[0].w();
   *(out_cv + 8 * 3 + 1) = state[1].w();
   *(out_cv + 8 * 3 + 2) = state[2].w();
@@ -887,6 +1144,249 @@ blake3::v2::compress(const sycl::uint* in_cv,
   *(out_cv + 8 * 3 + 5) = state[5].w();
   *(out_cv + 8 * 3 + 6) = state[6].w();
   *(out_cv + 8 * 3 + 7) = state[7].w();
+#elif BLAKE3_SIMD_LANES == 8
+  // writing 32 -bytes output chaining value
+  // for first chunk in this batch
+  *(out_cv + 8 * 0 + 0) = state[0].s0();
+  *(out_cv + 8 * 0 + 1) = state[1].s0();
+  *(out_cv + 8 * 0 + 2) = state[2].s0();
+  *(out_cv + 8 * 0 + 3) = state[3].s0();
+  *(out_cv + 8 * 0 + 4) = state[4].s0();
+  *(out_cv + 8 * 0 + 5) = state[5].s0();
+  *(out_cv + 8 * 0 + 6) = state[6].s0();
+  *(out_cv + 8 * 0 + 7) = state[7].s0();
+
+  // output chaining value of second chunk
+  *(out_cv + 8 * 1 + 0) = state[0].s1();
+  *(out_cv + 8 * 1 + 1) = state[1].s1();
+  *(out_cv + 8 * 1 + 2) = state[2].s1();
+  *(out_cv + 8 * 1 + 3) = state[3].s1();
+  *(out_cv + 8 * 1 + 4) = state[4].s1();
+  *(out_cv + 8 * 1 + 5) = state[5].s1();
+  *(out_cv + 8 * 1 + 6) = state[6].s1();
+  *(out_cv + 8 * 1 + 7) = state[7].s1();
+
+  // output chaining value of third chunk
+  *(out_cv + 8 * 2 + 0) = state[0].s2();
+  *(out_cv + 8 * 2 + 1) = state[1].s2();
+  *(out_cv + 8 * 2 + 2) = state[2].s2();
+  *(out_cv + 8 * 2 + 3) = state[3].s2();
+  *(out_cv + 8 * 2 + 4) = state[4].s2();
+  *(out_cv + 8 * 2 + 5) = state[5].s2();
+  *(out_cv + 8 * 2 + 6) = state[6].s2();
+  *(out_cv + 8 * 2 + 7) = state[7].s2();
+
+  // output chaining value of fourth chunk
+  *(out_cv + 8 * 3 + 0) = state[0].s3();
+  *(out_cv + 8 * 3 + 1) = state[1].s3();
+  *(out_cv + 8 * 3 + 2) = state[2].s3();
+  *(out_cv + 8 * 3 + 3) = state[3].s3();
+  *(out_cv + 8 * 3 + 4) = state[4].s3();
+  *(out_cv + 8 * 3 + 5) = state[5].s3();
+  *(out_cv + 8 * 3 + 6) = state[6].s3();
+  *(out_cv + 8 * 3 + 7) = state[7].s3();
+
+  // output chaining value of fifth chunk
+  *(out_cv + 8 * 4 + 0) = state[0].s4();
+  *(out_cv + 8 * 4 + 1) = state[1].s4();
+  *(out_cv + 8 * 4 + 2) = state[2].s4();
+  *(out_cv + 8 * 4 + 3) = state[3].s4();
+  *(out_cv + 8 * 4 + 4) = state[4].s4();
+  *(out_cv + 8 * 4 + 5) = state[5].s4();
+  *(out_cv + 8 * 4 + 6) = state[6].s4();
+  *(out_cv + 8 * 4 + 7) = state[7].s4();
+
+  // output chaining value of sixth chunk
+  *(out_cv + 8 * 5 + 0) = state[0].s5();
+  *(out_cv + 8 * 5 + 1) = state[1].s5();
+  *(out_cv + 8 * 5 + 2) = state[2].s5();
+  *(out_cv + 8 * 5 + 3) = state[3].s5();
+  *(out_cv + 8 * 5 + 4) = state[4].s5();
+  *(out_cv + 8 * 5 + 5) = state[5].s5();
+  *(out_cv + 8 * 5 + 6) = state[6].s5();
+  *(out_cv + 8 * 5 + 7) = state[7].s5();
+
+  // output chaining value of seventh chunk
+  *(out_cv + 8 * 6 + 0) = state[0].s6();
+  *(out_cv + 8 * 6 + 1) = state[1].s6();
+  *(out_cv + 8 * 6 + 2) = state[2].s6();
+  *(out_cv + 8 * 6 + 3) = state[3].s6();
+  *(out_cv + 8 * 6 + 4) = state[4].s6();
+  *(out_cv + 8 * 6 + 5) = state[5].s6();
+  *(out_cv + 8 * 6 + 6) = state[6].s6();
+  *(out_cv + 8 * 6 + 7) = state[7].s6();
+
+  // output chaining value of eighth chunk
+  *(out_cv + 8 * 7 + 0) = state[0].s7();
+  *(out_cv + 8 * 7 + 1) = state[1].s7();
+  *(out_cv + 8 * 7 + 2) = state[2].s7();
+  *(out_cv + 8 * 7 + 3) = state[3].s7();
+  *(out_cv + 8 * 7 + 4) = state[4].s7();
+  *(out_cv + 8 * 7 + 5) = state[5].s7();
+  *(out_cv + 8 * 7 + 6) = state[6].s7();
+  *(out_cv + 8 * 7 + 7) = state[7].s7();
+#elif BLAKE3_SIMD_LANES == 16
+  // writing 32 -bytes output chaining value
+  // for first chunk in this batch
+  *(out_cv + 8 * 0 + 0) = state[0].s0();
+  *(out_cv + 8 * 0 + 1) = state[1].s0();
+  *(out_cv + 8 * 0 + 2) = state[2].s0();
+  *(out_cv + 8 * 0 + 3) = state[3].s0();
+  *(out_cv + 8 * 0 + 4) = state[4].s0();
+  *(out_cv + 8 * 0 + 5) = state[5].s0();
+  *(out_cv + 8 * 0 + 6) = state[6].s0();
+  *(out_cv + 8 * 0 + 7) = state[7].s0();
+
+  // output chaining value of second chunk
+  *(out_cv + 8 * 1 + 0) = state[0].s1();
+  *(out_cv + 8 * 1 + 1) = state[1].s1();
+  *(out_cv + 8 * 1 + 2) = state[2].s1();
+  *(out_cv + 8 * 1 + 3) = state[3].s1();
+  *(out_cv + 8 * 1 + 4) = state[4].s1();
+  *(out_cv + 8 * 1 + 5) = state[5].s1();
+  *(out_cv + 8 * 1 + 6) = state[6].s1();
+  *(out_cv + 8 * 1 + 7) = state[7].s1();
+
+  // output chaining value of third chunk
+  *(out_cv + 8 * 2 + 0) = state[0].s2();
+  *(out_cv + 8 * 2 + 1) = state[1].s2();
+  *(out_cv + 8 * 2 + 2) = state[2].s2();
+  *(out_cv + 8 * 2 + 3) = state[3].s2();
+  *(out_cv + 8 * 2 + 4) = state[4].s2();
+  *(out_cv + 8 * 2 + 5) = state[5].s2();
+  *(out_cv + 8 * 2 + 6) = state[6].s2();
+  *(out_cv + 8 * 2 + 7) = state[7].s2();
+
+  // output chaining value of fourth chunk
+  *(out_cv + 8 * 3 + 0) = state[0].s3();
+  *(out_cv + 8 * 3 + 1) = state[1].s3();
+  *(out_cv + 8 * 3 + 2) = state[2].s3();
+  *(out_cv + 8 * 3 + 3) = state[3].s3();
+  *(out_cv + 8 * 3 + 4) = state[4].s3();
+  *(out_cv + 8 * 3 + 5) = state[5].s3();
+  *(out_cv + 8 * 3 + 6) = state[6].s3();
+  *(out_cv + 8 * 3 + 7) = state[7].s3();
+
+  // output chaining value of fifth chunk
+  *(out_cv + 8 * 4 + 0) = state[0].s4();
+  *(out_cv + 8 * 4 + 1) = state[1].s4();
+  *(out_cv + 8 * 4 + 2) = state[2].s4();
+  *(out_cv + 8 * 4 + 3) = state[3].s4();
+  *(out_cv + 8 * 4 + 4) = state[4].s4();
+  *(out_cv + 8 * 4 + 5) = state[5].s4();
+  *(out_cv + 8 * 4 + 6) = state[6].s4();
+  *(out_cv + 8 * 4 + 7) = state[7].s4();
+
+  // output chaining value of sixth chunk
+  *(out_cv + 8 * 5 + 0) = state[0].s5();
+  *(out_cv + 8 * 5 + 1) = state[1].s5();
+  *(out_cv + 8 * 5 + 2) = state[2].s5();
+  *(out_cv + 8 * 5 + 3) = state[3].s5();
+  *(out_cv + 8 * 5 + 4) = state[4].s5();
+  *(out_cv + 8 * 5 + 5) = state[5].s5();
+  *(out_cv + 8 * 5 + 6) = state[6].s5();
+  *(out_cv + 8 * 5 + 7) = state[7].s5();
+
+  // output chaining value of seventh chunk
+  *(out_cv + 8 * 6 + 0) = state[0].s6();
+  *(out_cv + 8 * 6 + 1) = state[1].s6();
+  *(out_cv + 8 * 6 + 2) = state[2].s6();
+  *(out_cv + 8 * 6 + 3) = state[3].s6();
+  *(out_cv + 8 * 6 + 4) = state[4].s6();
+  *(out_cv + 8 * 6 + 5) = state[5].s6();
+  *(out_cv + 8 * 6 + 6) = state[6].s6();
+  *(out_cv + 8 * 6 + 7) = state[7].s6();
+
+  // output chaining value of eighth chunk
+  *(out_cv + 8 * 7 + 0) = state[0].s7();
+  *(out_cv + 8 * 7 + 1) = state[1].s7();
+  *(out_cv + 8 * 7 + 2) = state[2].s7();
+  *(out_cv + 8 * 7 + 3) = state[3].s7();
+  *(out_cv + 8 * 7 + 4) = state[4].s7();
+  *(out_cv + 8 * 7 + 5) = state[5].s7();
+  *(out_cv + 8 * 7 + 6) = state[6].s7();
+  *(out_cv + 8 * 7 + 7) = state[7].s7();
+
+  // output chaining value of ninth chunk
+  *(out_cv + 8 * 8 + 0) = state[0].s8();
+  *(out_cv + 8 * 8 + 1) = state[1].s8();
+  *(out_cv + 8 * 8 + 2) = state[2].s8();
+  *(out_cv + 8 * 8 + 3) = state[3].s8();
+  *(out_cv + 8 * 8 + 4) = state[4].s8();
+  *(out_cv + 8 * 8 + 5) = state[5].s8();
+  *(out_cv + 8 * 8 + 6) = state[6].s8();
+  *(out_cv + 8 * 8 + 7) = state[7].s8();
+
+  // output chaining value of tenth chunk
+  *(out_cv + 8 * 9 + 0) = state[0].s9();
+  *(out_cv + 8 * 9 + 1) = state[1].s9();
+  *(out_cv + 8 * 9 + 2) = state[2].s9();
+  *(out_cv + 8 * 9 + 3) = state[3].s9();
+  *(out_cv + 8 * 9 + 4) = state[4].s9();
+  *(out_cv + 8 * 9 + 5) = state[5].s9();
+  *(out_cv + 8 * 9 + 6) = state[6].s9();
+  *(out_cv + 8 * 9 + 7) = state[7].s9();
+
+  // output chaining value of eleventh chunk
+  *(out_cv + 8 * 10 + 0) = state[0].s10();
+  *(out_cv + 8 * 10 + 1) = state[1].s10();
+  *(out_cv + 8 * 10 + 2) = state[2].s10();
+  *(out_cv + 8 * 10 + 3) = state[3].s10();
+  *(out_cv + 8 * 10 + 4) = state[4].s10();
+  *(out_cv + 8 * 10 + 5) = state[5].s10();
+  *(out_cv + 8 * 10 + 6) = state[6].s10();
+  *(out_cv + 8 * 10 + 7) = state[7].s10();
+
+  // output chaining value of twelveth chunk
+  *(out_cv + 8 * 11 + 0) = state[0].s11();
+  *(out_cv + 8 * 11 + 1) = state[1].s11();
+  *(out_cv + 8 * 11 + 2) = state[2].s11();
+  *(out_cv + 8 * 11 + 3) = state[3].s11();
+  *(out_cv + 8 * 11 + 4) = state[4].s11();
+  *(out_cv + 8 * 11 + 5) = state[5].s11();
+  *(out_cv + 8 * 11 + 6) = state[6].s11();
+  *(out_cv + 8 * 11 + 7) = state[7].s11();
+
+  // output chaining value of thirteenth chunk
+  *(out_cv + 8 * 12 + 0) = state[0].s12();
+  *(out_cv + 8 * 12 + 1) = state[1].s12();
+  *(out_cv + 8 * 12 + 2) = state[2].s12();
+  *(out_cv + 8 * 12 + 3) = state[3].s12();
+  *(out_cv + 8 * 12 + 4) = state[4].s12();
+  *(out_cv + 8 * 12 + 5) = state[5].s12();
+  *(out_cv + 8 * 12 + 6) = state[6].s12();
+  *(out_cv + 8 * 12 + 7) = state[7].s12();
+
+  // output chaining value of fourteenth chunk
+  *(out_cv + 8 * 13 + 0) = state[0].s13();
+  *(out_cv + 8 * 13 + 1) = state[1].s13();
+  *(out_cv + 8 * 13 + 2) = state[2].s13();
+  *(out_cv + 8 * 13 + 3) = state[3].s13();
+  *(out_cv + 8 * 13 + 4) = state[4].s13();
+  *(out_cv + 8 * 13 + 5) = state[5].s13();
+  *(out_cv + 8 * 13 + 6) = state[6].s13();
+  *(out_cv + 8 * 13 + 7) = state[7].s13();
+
+  // output chaining value of fifteenth chunk
+  *(out_cv + 8 * 14 + 0) = state[0].s14();
+  *(out_cv + 8 * 14 + 1) = state[1].s14();
+  *(out_cv + 8 * 14 + 2) = state[2].s14();
+  *(out_cv + 8 * 14 + 3) = state[3].s14();
+  *(out_cv + 8 * 14 + 4) = state[4].s14();
+  *(out_cv + 8 * 14 + 5) = state[5].s14();
+  *(out_cv + 8 * 14 + 6) = state[6].s14();
+  *(out_cv + 8 * 14 + 7) = state[7].s14();
+
+  // output chaining value of sixteenth chunk
+  *(out_cv + 8 * 15 + 0) = state[0].s15();
+  *(out_cv + 8 * 15 + 1) = state[1].s15();
+  *(out_cv + 8 * 15 + 2) = state[2].s15();
+  *(out_cv + 8 * 15 + 3) = state[3].s15();
+  *(out_cv + 8 * 15 + 4) = state[4].s15();
+  *(out_cv + 8 * 15 + 5) = state[5].s15();
+  *(out_cv + 8 * 15 + 6) = state[6].s15();
+  *(out_cv + 8 * 15 + 7) = state[7].s15();
+#endif
 }
 
 void
@@ -896,23 +1396,33 @@ blake3::v2::chunkify(const sycl::uint* key_words,
                      const sycl::uchar* input,
                      sycl::uint* const out_cv)
 {
+#if BLAKE3_SIMD_LANES == 4
   sycl::uint in_cv[32] = { 0 };
   sycl::uint priv_out_cv[32] = { 0 };
   sycl::uint block_words[64] = { 0 };
+#elif BLAKE3_SIMD_LANES == 8
+  sycl::uint in_cv[64] = { 0 };
+  sycl::uint priv_out_cv[64] = { 0 };
+  sycl::uint block_words[128] = { 0 };
+#elif BLAKE3_SIMD_LANES == 16
+  sycl::uint in_cv[128] = { 0 };
+  sycl::uint priv_out_cv[128] = { 0 };
+  sycl::uint block_words[256] = { 0 };
+#endif
 
-#pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
     sycl::uint tmp = *(key_words + i);
 
-    in_cv[i + 8 * 0] = tmp;
-    in_cv[i + 8 * 1] = tmp;
-    in_cv[i + 8 * 2] = tmp;
-    in_cv[i + 8 * 3] = tmp;
+#pragma unroll(4)
+    for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
+      in_cv[i + 8 * j] = tmp;
+    }
   }
 
   for (size_t i = 0; i < 16; i++) {
-    // prepare input for consumption into hash state
-    for (size_t j = 0; j < 4; j++) {
+    // prepare input of N -many chunks for
+    // consumption into hash state
+    for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
       blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
                                     blake3::CHUNK_LEN * j,
                                   block_words + 16 * j);
@@ -946,7 +1456,7 @@ blake3::v2::chunkify(const sycl::uint* key_words,
 
     if (i < 15) {
 #pragma unroll(4)
-      for (size_t j = 0; j < 32; j++) {
+      for (size_t j = 0; j < 8 * BLAKE3_SIMD_LANES; j++) {
         in_cv[j] = priv_out_cv[j];
       }
     }
@@ -963,22 +1473,44 @@ blake3::v2::hash(sycl::queue& q,
                  sycl::cl_ulong* const ts)
 {
   assert(i_size == chunk_count * blake3::CHUNK_LEN);
-  assert(chunk_count >= 1024);
-  assert((chunk_count & (chunk_count - 1)) == 0);
+  assert(chunk_count >= 1024); // minimum 1MB input required !
+  assert((chunk_count & (chunk_count - 1)) == 0); // power of 2 check
+
+#if BLAKE3_SIMD_LANES == 4
   assert(wg_size <= (chunk_count >> 2));
+#elif BLAKE3_SIMD_LANES == 8
+  assert(wg_size <= (chunk_count >> 3));
+#elif BLAKE3_SIMD_LANES == 16
+  assert(wg_size <= (chunk_count >> 4));
+#endif
 
   const size_t mem_size = static_cast<size_t>(blake3::BLOCK_LEN) * chunk_count;
   sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
   const size_t mem_offset = (blake3::OUT_LEN >> 2) * chunk_count;
 
   sycl::event evt_0 = q.parallel_for<class kernelBlake3HashV2ChunkifyLeafNodes>(
-    sycl::nd_range<1>{ sycl::range<1>{ chunk_count >> 2 },
+    sycl::nd_range<1>{ sycl::range<1>{
+#if BLAKE3_SIMD_LANES == 4
+                         chunk_count >> 2
+#elif BLAKE3_SIMD_LANES == 8
+                         chunk_count >> 3
+#elif BLAKE3_SIMD_LANES == 16
+                         chunk_count >> 4
+#endif
+                       },
                        sycl::range<1>{ wg_size } },
     [=](sycl::nd_item<1> it) {
-      // because 4 chunks are clustered together
-      // and operated on using single v2::chunkify
-      // function invocation
+  // because 4/ 8/ 16 chunks are clustered together
+  // and operated on using single v2::chunkify
+  // function invocation
+
+#if BLAKE3_SIMD_LANES == 4
       const size_t idx = it.get_global_linear_id() << 2;
+#elif BLAKE3_SIMD_LANES == 8
+      const size_t idx = it.get_global_linear_id() << 3;
+#elif BLAKE3_SIMD_LANES == 16
+      const size_t idx = it.get_global_linear_id() << 4;
+#endif
 
       blake3::v2::chunkify(blake3::IV,
                            static_cast<sycl::ulong>(idx),
