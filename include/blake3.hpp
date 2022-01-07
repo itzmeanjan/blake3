@@ -97,6 +97,15 @@ chunkify(const sycl::uint* key_words,
          const sycl::uint* flags,
          const sycl::uchar* input,
          sycl::uint* const out_cv);
+
+void
+hash(sycl::queue& q,
+     const sycl::uchar* input,
+     size_t i_size,
+     size_t chunk_count,
+     size_t wg_size,
+     sycl::uchar* const digest,
+     sycl::cl_ulong* const ts);
 }
 
 }
@@ -449,6 +458,135 @@ blake3::v2::chunkify(const sycl::uint* key_words,
         in_cv[j] = priv_out_cv[j];
       }
     }
+  }
+}
+
+void
+blake3::v2::hash(sycl::queue& q,
+                 const sycl::uchar* input,
+                 size_t i_size,
+                 size_t chunk_count,
+                 size_t wg_size,
+                 sycl::uchar* const digest,
+                 sycl::cl_ulong* const ts)
+{
+  assert(i_size == chunk_count * blake3::CHUNK_LEN);
+  assert(chunk_count >= 1024);
+  assert((chunk_count & (chunk_count - 1)) == 0);
+  assert(wg_size <= (chunk_count >> 2));
+
+  const size_t mem_size = static_cast<size_t>(blake3::BLOCK_LEN) * chunk_count;
+  sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
+  const size_t mem_offset = (blake3::OUT_LEN >> 2) * chunk_count;
+
+  sycl::event evt_0 = q.parallel_for<class kernelBlake3HashV2ChunkifyLeafNodes>(
+    sycl::nd_range<1>{ sycl::range<1>{ chunk_count >> 2 },
+                       sycl::range<1>{ wg_size } },
+    [=](sycl::nd_item<1> it) {
+      const size_t idx = it.get_global_linear_id();
+      const sycl::ulong chunk_counter[4] = {
+        static_cast<sycl::ulong>(idx << 2) + 0,
+        static_cast<sycl::ulong>(idx << 2) + 1,
+        static_cast<sycl::ulong>(idx << 2) + 2,
+        static_cast<sycl::ulong>(idx << 2) + 3
+      };
+      const sycl::uint flags[4] = { 0 };
+
+      blake3::v2::chunkify(blake3::IV,
+                           chunk_counter,
+                           flags,
+                           input + (idx << 2) * blake3::CHUNK_LEN,
+                           mem + mem_offset +
+                             (idx << 2) * (blake3::OUT_LEN >> 2));
+    });
+
+  const size_t rounds =
+    static_cast<size_t>(sycl::log2(static_cast<double>(chunk_count))) - 1;
+
+  std::vector<sycl::event> evts;
+  evts.reserve(rounds);
+
+  for (size_t r = 0; r < rounds; r++) {
+    sycl::event evt = q.submit([&](sycl::handler& h) {
+      if (r == 0) {
+        h.depends_on(evt_0);
+      } else {
+        h.depends_on(evts.at(r - 1));
+      }
+
+      const size_t read_offset = mem_offset >> r;
+      const size_t write_offset = read_offset >> 1;
+      const size_t glb_work_items = chunk_count >> (r + 1);
+      const size_t loc_work_items =
+        glb_work_items < wg_size ? glb_work_items : wg_size;
+
+      h.parallel_for<class kernelBlake3HashParentChaining>(
+        sycl::nd_range<1>{ sycl::range<1>{ glb_work_items },
+                           sycl::range<1>{ loc_work_items } },
+        [=](sycl::nd_item<1> it) {
+          const size_t idx = it.get_global_linear_id();
+
+          blake3::parent_cv(
+            mem + read_offset + (idx << 1) * (blake3::OUT_LEN >> 2),
+            mem + read_offset + ((idx << 1) + 1) * (blake3::OUT_LEN >> 2),
+            blake3::IV,
+            0,
+            mem + write_offset + idx * (blake3::OUT_LEN >> 2));
+        });
+    });
+    evts.push_back(evt);
+  }
+
+  sycl::event evt_1 = q.submit([&](sycl::handler& h) {
+    h.depends_on(evts.at(rounds - 1));
+    h.single_task([=]() {
+      blake3::root_cv(
+        mem + ((blake3::OUT_LEN >> 2) << 1) + 0 * (blake3::OUT_LEN >> 2),
+        mem + ((blake3::OUT_LEN >> 2) << 1) + 1 * (blake3::OUT_LEN >> 2),
+        blake3::IV,
+        mem + 1 * (blake3::OUT_LEN >> 2));
+      blake3::words_to_le_bytes(mem + 1 * (blake3::OUT_LEN >> 2), digest);
+    });
+  });
+
+  evt_1.wait();
+  sycl::free(mem, q);
+
+  // time kernel executions only when explicitly asked to
+  //
+  // when asked, ensure queue has profiling enabled, otherwise
+  // following function invocations will panic out !
+  if (ts != nullptr) {
+    sycl::cl_ulong ts_ = 0;
+
+    {
+      const sycl::cl_ulong start =
+        evt_0.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    for (auto evt : evts) {
+      const sycl::cl_ulong start =
+        evt.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    {
+      const sycl::cl_ulong start =
+        evt_1.get_profiling_info<sycl::info::event_profiling::command_start>();
+      const sycl::cl_ulong end =
+        evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+      ts_ += (end - start);
+    }
+
+    *ts = ts_;
   }
 }
 
