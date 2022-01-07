@@ -402,7 +402,10 @@ blake3::v2::chunkify(const sycl::uint* key_words,
   sycl::uint in_cv[32] = { 0 };
   sycl::uint priv_out_cv[32] = { 0 };
   sycl::uint block_words[64] = { 0 };
-  sycl::uint block_len[4] = { blake3::BLOCK_LEN };
+  sycl::uint block_len[4] = {
+    blake3::BLOCK_LEN, blake3::BLOCK_LEN, blake3::BLOCK_LEN, blake3::BLOCK_LEN
+  };
+  sycl::uint flags_[4] = { 0 };
 
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
@@ -430,19 +433,19 @@ blake3::v2::chunkify(const sycl::uint* key_words,
 
     switch (i) {
       case 0:
-        sycl::uint flags_[4] = { *(flags + 0) | blake3::CHUNK_START,
-                                 *(flags + 1) | blake3::CHUNK_START,
-                                 *(flags + 2) | blake3::CHUNK_START,
-                                 *(flags + 3) | blake3::CHUNK_START };
+        flags_[0] = *(flags + 0) | blake3::CHUNK_START;
+        flags_[1] = *(flags + 1) | blake3::CHUNK_START;
+        flags_[2] = *(flags + 2) | blake3::CHUNK_START;
+        flags_[3] = *(flags + 3) | blake3::CHUNK_START;
 
         blake3::v2::compress(
           in_cv, block_words, chunk_counter, block_len, flags_, priv_out_cv);
         break;
       case 15:
-        sycl::uint flags_[4] = { *(flags + 0) | blake3::CHUNK_END,
-                                 *(flags + 1) | blake3::CHUNK_END,
-                                 *(flags + 2) | blake3::CHUNK_END,
-                                 *(flags + 3) | blake3::CHUNK_END };
+        flags_[0] = *(flags + 0) | blake3::CHUNK_END;
+        flags_[1] = *(flags + 1) | blake3::CHUNK_END;
+        flags_[2] = *(flags + 2) | blake3::CHUNK_END;
+        flags_[3] = *(flags + 3) | blake3::CHUNK_END;
 
         blake3::v2::compress(
           in_cv, block_words, chunk_counter, block_len, flags_, out_cv);
@@ -520,7 +523,7 @@ blake3::v2::hash(sycl::queue& q,
       const size_t loc_work_items =
         glb_work_items < wg_size ? glb_work_items : wg_size;
 
-      h.parallel_for<class kernelBlake3HashParentChaining>(
+      h.parallel_for<class kernelBlake3HashV2ParentChaining>(
         sycl::nd_range<1>{ sycl::range<1>{ glb_work_items },
                            sycl::range<1>{ loc_work_items } },
         [=](sycl::nd_item<1> it) {
@@ -854,7 +857,7 @@ blake3::v1::hash(sycl::queue& q,
   sycl::uint* mem = static_cast<sycl::uint*>(sycl::malloc_device(mem_size, q));
   const size_t mem_offset = (blake3::OUT_LEN >> 2) * chunk_count;
 
-  sycl::event evt_0 = q.parallel_for<class kernelBlake3HashChunkifyLeafNodes>(
+  sycl::event evt_0 = q.parallel_for<class kernelBlake3HashV1ChunkifyLeafNodes>(
     sycl::nd_range<1>{ sycl::range<1>{ chunk_count },
                        sycl::range<1>{ wg_size } },
     [=](sycl::nd_item<1> it) {
@@ -934,7 +937,7 @@ blake3::v1::hash(sycl::queue& q,
       const size_t loc_work_items =
         glb_work_items < wg_size ? glb_work_items : wg_size;
 
-      h.parallel_for<class kernelBlake3HashParentChaining>(
+      h.parallel_for<class kernelBlake3HashV1ParentChaining>(
         sycl::nd_range<1>{ sycl::range<1>{ glb_work_items },
                            sycl::range<1>{ loc_work_items } },
         [=](sycl::nd_item<1> it) {
