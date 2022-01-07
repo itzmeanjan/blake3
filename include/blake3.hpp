@@ -1062,38 +1062,9 @@ blake3::v2::compress(const sycl::uint* in_cv,
     blake3::v2::round(state, block_words);
 
     if (i < 7) {
-#if BLAKE3_SIMD_LANES == 4
-      blake3::permute(block_words + 16 * 0);
-      blake3::permute(block_words + 16 * 1);
-      blake3::permute(block_words + 16 * 2);
-      blake3::permute(block_words + 16 * 3);
-#elif BLAKE3_SIMD_LANES == 8
-      blake3::permute(block_words + 16 * 0);
-      blake3::permute(block_words + 16 * 1);
-      blake3::permute(block_words + 16 * 2);
-      blake3::permute(block_words + 16 * 3);
-      blake3::permute(block_words + 16 * 4);
-      blake3::permute(block_words + 16 * 5);
-      blake3::permute(block_words + 16 * 6);
-      blake3::permute(block_words + 16 * 7);
-#elif BLAKE3_SIMD_LANES == 16
-      blake3::permute(block_words + 16 * 0);
-      blake3::permute(block_words + 16 * 1);
-      blake3::permute(block_words + 16 * 2);
-      blake3::permute(block_words + 16 * 3);
-      blake3::permute(block_words + 16 * 4);
-      blake3::permute(block_words + 16 * 5);
-      blake3::permute(block_words + 16 * 6);
-      blake3::permute(block_words + 16 * 7);
-      blake3::permute(block_words + 16 * 8);
-      blake3::permute(block_words + 16 * 9);
-      blake3::permute(block_words + 16 * 10);
-      blake3::permute(block_words + 16 * 11);
-      blake3::permute(block_words + 16 * 12);
-      blake3::permute(block_words + 16 * 13);
-      blake3::permute(block_words + 16 * 14);
-      blake3::permute(block_words + 16 * 15);
-#endif
+      for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
+        blake3::permute(block_words + 16 * j);
+      }
     }
   }
 
@@ -1104,288 +1075,176 @@ blake3::v2::compress(const sycl::uint* in_cv,
   }
 
 #if BLAKE3_SIMD_LANES == 4
-  // writing 32 -bytes output chaining value
-  // for first chunk in this batch
-  *(out_cv + 8 * 0 + 0) = state[0].x();
-  *(out_cv + 8 * 0 + 1) = state[1].x();
-  *(out_cv + 8 * 0 + 2) = state[2].x();
-  *(out_cv + 8 * 0 + 3) = state[3].x();
-  *(out_cv + 8 * 0 + 4) = state[4].x();
-  *(out_cv + 8 * 0 + 5) = state[5].x();
-  *(out_cv + 8 * 0 + 6) = state[6].x();
-  *(out_cv + 8 * 0 + 7) = state[7].x();
+// writing 32 -bytes output chaining value
+// for first chunk in this batch
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 0 + i) = state[i].x();
+  }
 
-  // output chaining value of second chunk
-  *(out_cv + 8 * 1 + 0) = state[0].y();
-  *(out_cv + 8 * 1 + 1) = state[1].y();
-  *(out_cv + 8 * 1 + 2) = state[2].y();
-  *(out_cv + 8 * 1 + 3) = state[3].y();
-  *(out_cv + 8 * 1 + 4) = state[4].y();
-  *(out_cv + 8 * 1 + 5) = state[5].y();
-  *(out_cv + 8 * 1 + 6) = state[6].y();
-  *(out_cv + 8 * 1 + 7) = state[7].y();
+// output chaining value of second chunk
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 1 + i) = state[i].y();
+  }
 
-  // output chaining value of third chunk
-  *(out_cv + 8 * 2 + 0) = state[0].z();
-  *(out_cv + 8 * 2 + 1) = state[1].z();
-  *(out_cv + 8 * 2 + 2) = state[2].z();
-  *(out_cv + 8 * 2 + 3) = state[3].z();
-  *(out_cv + 8 * 2 + 4) = state[4].z();
-  *(out_cv + 8 * 2 + 5) = state[5].z();
-  *(out_cv + 8 * 2 + 6) = state[6].z();
-  *(out_cv + 8 * 2 + 7) = state[7].z();
+// output chaining value of third chunk
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 2 + i) = state[i].z();
+  }
 
   // output chaining value of fourth chunk
-  *(out_cv + 8 * 3 + 0) = state[0].w();
-  *(out_cv + 8 * 3 + 1) = state[1].w();
-  *(out_cv + 8 * 3 + 2) = state[2].w();
-  *(out_cv + 8 * 3 + 3) = state[3].w();
-  *(out_cv + 8 * 3 + 4) = state[4].w();
-  *(out_cv + 8 * 3 + 5) = state[5].w();
-  *(out_cv + 8 * 3 + 6) = state[6].w();
-  *(out_cv + 8 * 3 + 7) = state[7].w();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 3 + i) = state[i].w();
+  }
 #elif BLAKE3_SIMD_LANES == 8
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-  *(out_cv + 8 * 0 + 0) = state[0].s0();
-  *(out_cv + 8 * 0 + 1) = state[1].s0();
-  *(out_cv + 8 * 0 + 2) = state[2].s0();
-  *(out_cv + 8 * 0 + 3) = state[3].s0();
-  *(out_cv + 8 * 0 + 4) = state[4].s0();
-  *(out_cv + 8 * 0 + 5) = state[5].s0();
-  *(out_cv + 8 * 0 + 6) = state[6].s0();
-  *(out_cv + 8 * 0 + 7) = state[7].s0();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 0 + i) = state[i].s0();
+  }
 
-  // output chaining value of second chunk
-  *(out_cv + 8 * 1 + 0) = state[0].s1();
-  *(out_cv + 8 * 1 + 1) = state[1].s1();
-  *(out_cv + 8 * 1 + 2) = state[2].s1();
-  *(out_cv + 8 * 1 + 3) = state[3].s1();
-  *(out_cv + 8 * 1 + 4) = state[4].s1();
-  *(out_cv + 8 * 1 + 5) = state[5].s1();
-  *(out_cv + 8 * 1 + 6) = state[6].s1();
-  *(out_cv + 8 * 1 + 7) = state[7].s1();
+// output chaining value of second chunk
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 1 + i) = state[i].s1();
+  }
 
   // output chaining value of third chunk
-  *(out_cv + 8 * 2 + 0) = state[0].s2();
-  *(out_cv + 8 * 2 + 1) = state[1].s2();
-  *(out_cv + 8 * 2 + 2) = state[2].s2();
-  *(out_cv + 8 * 2 + 3) = state[3].s2();
-  *(out_cv + 8 * 2 + 4) = state[4].s2();
-  *(out_cv + 8 * 2 + 5) = state[5].s2();
-  *(out_cv + 8 * 2 + 6) = state[6].s2();
-  *(out_cv + 8 * 2 + 7) = state[7].s2();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 2 + i) = state[i].s2();
+  }
 
   // output chaining value of fourth chunk
-  *(out_cv + 8 * 3 + 0) = state[0].s3();
-  *(out_cv + 8 * 3 + 1) = state[1].s3();
-  *(out_cv + 8 * 3 + 2) = state[2].s3();
-  *(out_cv + 8 * 3 + 3) = state[3].s3();
-  *(out_cv + 8 * 3 + 4) = state[4].s3();
-  *(out_cv + 8 * 3 + 5) = state[5].s3();
-  *(out_cv + 8 * 3 + 6) = state[6].s3();
-  *(out_cv + 8 * 3 + 7) = state[7].s3();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 3 + i) = state[i].s3();
+  }
 
   // output chaining value of fifth chunk
-  *(out_cv + 8 * 4 + 0) = state[0].s4();
-  *(out_cv + 8 * 4 + 1) = state[1].s4();
-  *(out_cv + 8 * 4 + 2) = state[2].s4();
-  *(out_cv + 8 * 4 + 3) = state[3].s4();
-  *(out_cv + 8 * 4 + 4) = state[4].s4();
-  *(out_cv + 8 * 4 + 5) = state[5].s4();
-  *(out_cv + 8 * 4 + 6) = state[6].s4();
-  *(out_cv + 8 * 4 + 7) = state[7].s4();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 4 + i) = state[i].s4();
+  }
 
   // output chaining value of sixth chunk
-  *(out_cv + 8 * 5 + 0) = state[0].s5();
-  *(out_cv + 8 * 5 + 1) = state[1].s5();
-  *(out_cv + 8 * 5 + 2) = state[2].s5();
-  *(out_cv + 8 * 5 + 3) = state[3].s5();
-  *(out_cv + 8 * 5 + 4) = state[4].s5();
-  *(out_cv + 8 * 5 + 5) = state[5].s5();
-  *(out_cv + 8 * 5 + 6) = state[6].s5();
-  *(out_cv + 8 * 5 + 7) = state[7].s5();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 5 + i) = state[i].s5();
+  }
 
   // output chaining value of seventh chunk
-  *(out_cv + 8 * 6 + 0) = state[0].s6();
-  *(out_cv + 8 * 6 + 1) = state[1].s6();
-  *(out_cv + 8 * 6 + 2) = state[2].s6();
-  *(out_cv + 8 * 6 + 3) = state[3].s6();
-  *(out_cv + 8 * 6 + 4) = state[4].s6();
-  *(out_cv + 8 * 6 + 5) = state[5].s6();
-  *(out_cv + 8 * 6 + 6) = state[6].s6();
-  *(out_cv + 8 * 6 + 7) = state[7].s6();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 6 + i) = state[i].s6();
+  }
 
   // output chaining value of eighth chunk
-  *(out_cv + 8 * 7 + 0) = state[0].s7();
-  *(out_cv + 8 * 7 + 1) = state[1].s7();
-  *(out_cv + 8 * 7 + 2) = state[2].s7();
-  *(out_cv + 8 * 7 + 3) = state[3].s7();
-  *(out_cv + 8 * 7 + 4) = state[4].s7();
-  *(out_cv + 8 * 7 + 5) = state[5].s7();
-  *(out_cv + 8 * 7 + 6) = state[6].s7();
-  *(out_cv + 8 * 7 + 7) = state[7].s7();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 7 + i) = state[i].s7();
+  }
 #elif BLAKE3_SIMD_LANES == 16
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-  *(out_cv + 8 * 0 + 0) = state[0].s0();
-  *(out_cv + 8 * 0 + 1) = state[1].s0();
-  *(out_cv + 8 * 0 + 2) = state[2].s0();
-  *(out_cv + 8 * 0 + 3) = state[3].s0();
-  *(out_cv + 8 * 0 + 4) = state[4].s0();
-  *(out_cv + 8 * 0 + 5) = state[5].s0();
-  *(out_cv + 8 * 0 + 6) = state[6].s0();
-  *(out_cv + 8 * 0 + 7) = state[7].s0();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 0 + i) = state[i].s0();
+  }
 
   // output chaining value of second chunk
-  *(out_cv + 8 * 1 + 0) = state[0].s1();
-  *(out_cv + 8 * 1 + 1) = state[1].s1();
-  *(out_cv + 8 * 1 + 2) = state[2].s1();
-  *(out_cv + 8 * 1 + 3) = state[3].s1();
-  *(out_cv + 8 * 1 + 4) = state[4].s1();
-  *(out_cv + 8 * 1 + 5) = state[5].s1();
-  *(out_cv + 8 * 1 + 6) = state[6].s1();
-  *(out_cv + 8 * 1 + 7) = state[7].s1();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 1 + i) = state[i].s1();
+  }
 
   // output chaining value of third chunk
-  *(out_cv + 8 * 2 + 0) = state[0].s2();
-  *(out_cv + 8 * 2 + 1) = state[1].s2();
-  *(out_cv + 8 * 2 + 2) = state[2].s2();
-  *(out_cv + 8 * 2 + 3) = state[3].s2();
-  *(out_cv + 8 * 2 + 4) = state[4].s2();
-  *(out_cv + 8 * 2 + 5) = state[5].s2();
-  *(out_cv + 8 * 2 + 6) = state[6].s2();
-  *(out_cv + 8 * 2 + 7) = state[7].s2();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 2 + i) = state[i].s2();
+  }
 
   // output chaining value of fourth chunk
-  *(out_cv + 8 * 3 + 0) = state[0].s3();
-  *(out_cv + 8 * 3 + 1) = state[1].s3();
-  *(out_cv + 8 * 3 + 2) = state[2].s3();
-  *(out_cv + 8 * 3 + 3) = state[3].s3();
-  *(out_cv + 8 * 3 + 4) = state[4].s3();
-  *(out_cv + 8 * 3 + 5) = state[5].s3();
-  *(out_cv + 8 * 3 + 6) = state[6].s3();
-  *(out_cv + 8 * 3 + 7) = state[7].s3();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 3 + i) = state[i].s3();
+  }
 
   // output chaining value of fifth chunk
-  *(out_cv + 8 * 4 + 0) = state[0].s4();
-  *(out_cv + 8 * 4 + 1) = state[1].s4();
-  *(out_cv + 8 * 4 + 2) = state[2].s4();
-  *(out_cv + 8 * 4 + 3) = state[3].s4();
-  *(out_cv + 8 * 4 + 4) = state[4].s4();
-  *(out_cv + 8 * 4 + 5) = state[5].s4();
-  *(out_cv + 8 * 4 + 6) = state[6].s4();
-  *(out_cv + 8 * 4 + 7) = state[7].s4();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 4 + i) = state[i].s4();
+  }
 
   // output chaining value of sixth chunk
-  *(out_cv + 8 * 5 + 0) = state[0].s5();
-  *(out_cv + 8 * 5 + 1) = state[1].s5();
-  *(out_cv + 8 * 5 + 2) = state[2].s5();
-  *(out_cv + 8 * 5 + 3) = state[3].s5();
-  *(out_cv + 8 * 5 + 4) = state[4].s5();
-  *(out_cv + 8 * 5 + 5) = state[5].s5();
-  *(out_cv + 8 * 5 + 6) = state[6].s5();
-  *(out_cv + 8 * 5 + 7) = state[7].s5();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 5 + i) = state[i].s5();
+  }
 
   // output chaining value of seventh chunk
-  *(out_cv + 8 * 6 + 0) = state[0].s6();
-  *(out_cv + 8 * 6 + 1) = state[1].s6();
-  *(out_cv + 8 * 6 + 2) = state[2].s6();
-  *(out_cv + 8 * 6 + 3) = state[3].s6();
-  *(out_cv + 8 * 6 + 4) = state[4].s6();
-  *(out_cv + 8 * 6 + 5) = state[5].s6();
-  *(out_cv + 8 * 6 + 6) = state[6].s6();
-  *(out_cv + 8 * 6 + 7) = state[7].s6();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 6 + i) = state[i].s6();
+  }
 
   // output chaining value of eighth chunk
-  *(out_cv + 8 * 7 + 0) = state[0].s7();
-  *(out_cv + 8 * 7 + 1) = state[1].s7();
-  *(out_cv + 8 * 7 + 2) = state[2].s7();
-  *(out_cv + 8 * 7 + 3) = state[3].s7();
-  *(out_cv + 8 * 7 + 4) = state[4].s7();
-  *(out_cv + 8 * 7 + 5) = state[5].s7();
-  *(out_cv + 8 * 7 + 6) = state[6].s7();
-  *(out_cv + 8 * 7 + 7) = state[7].s7();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 7 + i) = state[i].s7();
+  }
 
   // output chaining value of ninth chunk
-  *(out_cv + 8 * 8 + 0) = state[0].s8();
-  *(out_cv + 8 * 8 + 1) = state[1].s8();
-  *(out_cv + 8 * 8 + 2) = state[2].s8();
-  *(out_cv + 8 * 8 + 3) = state[3].s8();
-  *(out_cv + 8 * 8 + 4) = state[4].s8();
-  *(out_cv + 8 * 8 + 5) = state[5].s8();
-  *(out_cv + 8 * 8 + 6) = state[6].s8();
-  *(out_cv + 8 * 8 + 7) = state[7].s8();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 8 + i) = state[i].s8();
+  }
 
   // output chaining value of tenth chunk
-  *(out_cv + 8 * 9 + 0) = state[0].s9();
-  *(out_cv + 8 * 9 + 1) = state[1].s9();
-  *(out_cv + 8 * 9 + 2) = state[2].s9();
-  *(out_cv + 8 * 9 + 3) = state[3].s9();
-  *(out_cv + 8 * 9 + 4) = state[4].s9();
-  *(out_cv + 8 * 9 + 5) = state[5].s9();
-  *(out_cv + 8 * 9 + 6) = state[6].s9();
-  *(out_cv + 8 * 9 + 7) = state[7].s9();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 9 + i) = state[i].s9();
+  }
 
   // output chaining value of eleventh chunk
-  *(out_cv + 8 * 10 + 0) = state[0].s10();
-  *(out_cv + 8 * 10 + 1) = state[1].s10();
-  *(out_cv + 8 * 10 + 2) = state[2].s10();
-  *(out_cv + 8 * 10 + 3) = state[3].s10();
-  *(out_cv + 8 * 10 + 4) = state[4].s10();
-  *(out_cv + 8 * 10 + 5) = state[5].s10();
-  *(out_cv + 8 * 10 + 6) = state[6].s10();
-  *(out_cv + 8 * 10 + 7) = state[7].s10();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 10 + i) = state[i].s10();
+  }
 
   // output chaining value of twelveth chunk
-  *(out_cv + 8 * 11 + 0) = state[0].s11();
-  *(out_cv + 8 * 11 + 1) = state[1].s11();
-  *(out_cv + 8 * 11 + 2) = state[2].s11();
-  *(out_cv + 8 * 11 + 3) = state[3].s11();
-  *(out_cv + 8 * 11 + 4) = state[4].s11();
-  *(out_cv + 8 * 11 + 5) = state[5].s11();
-  *(out_cv + 8 * 11 + 6) = state[6].s11();
-  *(out_cv + 8 * 11 + 7) = state[7].s11();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 11 + i) = state[i].s11();
+  }
 
   // output chaining value of thirteenth chunk
-  *(out_cv + 8 * 12 + 0) = state[0].s12();
-  *(out_cv + 8 * 12 + 1) = state[1].s12();
-  *(out_cv + 8 * 12 + 2) = state[2].s12();
-  *(out_cv + 8 * 12 + 3) = state[3].s12();
-  *(out_cv + 8 * 12 + 4) = state[4].s12();
-  *(out_cv + 8 * 12 + 5) = state[5].s12();
-  *(out_cv + 8 * 12 + 6) = state[6].s12();
-  *(out_cv + 8 * 12 + 7) = state[7].s12();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 12 + i) = state[i].s12();
+  }
 
   // output chaining value of fourteenth chunk
-  *(out_cv + 8 * 13 + 0) = state[0].s13();
-  *(out_cv + 8 * 13 + 1) = state[1].s13();
-  *(out_cv + 8 * 13 + 2) = state[2].s13();
-  *(out_cv + 8 * 13 + 3) = state[3].s13();
-  *(out_cv + 8 * 13 + 4) = state[4].s13();
-  *(out_cv + 8 * 13 + 5) = state[5].s13();
-  *(out_cv + 8 * 13 + 6) = state[6].s13();
-  *(out_cv + 8 * 13 + 7) = state[7].s13();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 13 + i) = state[i].s13();
+  }
 
   // output chaining value of fifteenth chunk
-  *(out_cv + 8 * 14 + 0) = state[0].s14();
-  *(out_cv + 8 * 14 + 1) = state[1].s14();
-  *(out_cv + 8 * 14 + 2) = state[2].s14();
-  *(out_cv + 8 * 14 + 3) = state[3].s14();
-  *(out_cv + 8 * 14 + 4) = state[4].s14();
-  *(out_cv + 8 * 14 + 5) = state[5].s14();
-  *(out_cv + 8 * 14 + 6) = state[6].s14();
-  *(out_cv + 8 * 14 + 7) = state[7].s14();
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 14 + i) = state[i].s14();
+  }
 
-  // output chaining value of sixteenth chunk
-  *(out_cv + 8 * 15 + 0) = state[0].s15();
-  *(out_cv + 8 * 15 + 1) = state[1].s15();
-  *(out_cv + 8 * 15 + 2) = state[2].s15();
-  *(out_cv + 8 * 15 + 3) = state[3].s15();
-  *(out_cv + 8 * 15 + 4) = state[4].s15();
-  *(out_cv + 8 * 15 + 5) = state[5].s15();
-  *(out_cv + 8 * 15 + 6) = state[6].s15();
-  *(out_cv + 8 * 15 + 7) = state[7].s15();
+// output chaining value of sixteenth chunk
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 15 + i) = state[i].s15();
+  }
 #endif
 }
 
