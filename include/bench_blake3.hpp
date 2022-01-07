@@ -30,7 +30,7 @@ benchmark_blake3(sycl::queue& q, size_t chunk_count, size_t wg_size)
   sycl::cl_ulong ts = 0; // timing info, ensure queue has profiling enabled
 
   q.memcpy(i_d, i_h, i_size).wait();
-  blake3::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts);
+  blake3::v1::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts);
   q.memcpy(o_h, o_d, o_size).wait();
 
   sycl::free(i_h, q);
