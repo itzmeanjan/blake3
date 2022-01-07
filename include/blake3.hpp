@@ -90,6 +90,13 @@ compress(const sycl::uint* in_cv,
          const sycl::uint* block_len,
          const sycl::uint* flags,
          sycl::uint* const out_cv);
+
+void
+chunkify(const sycl::uint* key_words,
+         const sycl::ulong* chunk_counter,
+         const sycl::uint* flags,
+         const sycl::uchar* input,
+         sycl::uint* const out_cv);
 }
 
 }
@@ -374,6 +381,75 @@ blake3::v2::compress(const sycl::uint* in_cv,
   *(out_cv + 8 * 3 + 5) = state[5].w();
   *(out_cv + 8 * 3 + 6) = state[6].w();
   *(out_cv + 8 * 3 + 7) = state[7].w();
+}
+
+void
+blake3::v2::chunkify(const sycl::uint* key_words,
+                     const sycl::ulong* chunk_counter,
+                     const sycl::uint* flags,
+                     const sycl::uchar* input,
+                     sycl::uint* const out_cv)
+{
+  sycl::uint in_cv[32] = { 0 };
+  sycl::uint priv_out_cv[32] = { 0 };
+  sycl::uint block_words[64] = { 0 };
+  sycl::uint block_len[4] = { blake3::BLOCK_LEN };
+
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    sycl::uint tmp = *(key_words + i);
+
+    in_cv[i + 8 * 0] = tmp;
+    in_cv[i + 8 * 1] = tmp;
+    in_cv[i + 8 * 2] = tmp;
+    in_cv[i + 8 * 3] = tmp;
+  }
+
+  for (size_t i = 0; i < 16; i++) {
+    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
+                                  blake3::CHUNK_LEN * 0,
+                                block_words + 16 * 0);
+    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
+                                  blake3::CHUNK_LEN * 1,
+                                block_words + 16 * 1);
+    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
+                                  blake3::CHUNK_LEN * 2,
+                                block_words + 16 * 2);
+    blake3::words_from_le_bytes(input + blake3::BLOCK_LEN * i +
+                                  blake3::CHUNK_LEN * 3,
+                                block_words + 16 * 3);
+
+    switch (i) {
+      case 0:
+        sycl::uint flags_[4] = { *(flags + 0) | blake3::CHUNK_START,
+                                 *(flags + 1) | blake3::CHUNK_START,
+                                 *(flags + 2) | blake3::CHUNK_START,
+                                 *(flags + 3) | blake3::CHUNK_START };
+
+        blake3::v2::compress(
+          in_cv, block_words, chunk_counter, block_len, flags_, priv_out_cv);
+        break;
+      case 15:
+        sycl::uint flags_[4] = { *(flags + 0) | blake3::CHUNK_END,
+                                 *(flags + 1) | blake3::CHUNK_END,
+                                 *(flags + 2) | blake3::CHUNK_END,
+                                 *(flags + 3) | blake3::CHUNK_END };
+
+        blake3::v2::compress(
+          in_cv, block_words, chunk_counter, block_len, flags_, out_cv);
+        break;
+      default:
+        blake3::v2::compress(
+          in_cv, block_words, chunk_counter, block_len, flags, priv_out_cv);
+    }
+
+    if (i < 15) {
+#pragma unroll(4)
+      for (size_t j = 0; j < 32; j++) {
+        in_cv[j] = priv_out_cv[j];
+      }
+    }
+  }
 }
 
 inline void
