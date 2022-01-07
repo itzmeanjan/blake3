@@ -6,10 +6,18 @@
 #ifndef BLAKE3_SIMD_LANES
 #define BLAKE3_SIMD_LANES 4
 #else
-#if BLAKE3_SIMD_LANES != 4 || BLAKE3_SIMD_LANES != 8 || BLAKE3_SIMD_LANES != 16
+#if BLAKE3_SIMD_LANES == 4 || BLAKE3_SIMD_LANES == 8 || BLAKE3_SIMD_LANES == 16
+#else
 #error Unsupported many SIMD lanes requested; supports only {4, 8, 16}
 #endif
 #endif
+
+// Just to make sure user knows it's possible to choose SIMD lane count 
+// from {4, 8, 16}
+#define STR2(x) #x
+#define STR(x) STR2(x)
+#define PREP_MSG(x) "Compressing " STR(x) " chunks in parallel; see https://github.com/itzmeanjan/blake3/pull/1"
+#pragma message PREP_MSG(BLAKE3_SIMD_LANES)
 
 namespace blake3 {
 constexpr size_t MSG_PERMUTATION[16] = { 2, 6,  3,  10, 7, 0,  4,  13,
@@ -1213,37 +1221,37 @@ blake3::v2::compress(const sycl::uint* in_cv,
   // output chaining value of eleventh chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 10 + i) = state[i].s10();
+    *(out_cv + 8 * 10 + i) = state[i].sA();
   }
 
   // output chaining value of twelveth chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 11 + i) = state[i].s11();
+    *(out_cv + 8 * 11 + i) = state[i].sB();
   }
 
   // output chaining value of thirteenth chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 12 + i) = state[i].s12();
+    *(out_cv + 8 * 12 + i) = state[i].sC();
   }
 
   // output chaining value of fourteenth chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 13 + i) = state[i].s13();
+    *(out_cv + 8 * 13 + i) = state[i].sD();
   }
 
   // output chaining value of fifteenth chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 14 + i) = state[i].s14();
+    *(out_cv + 8 * 14 + i) = state[i].sE();
   }
 
 // output chaining value of sixteenth chunk
 #pragma unroll(4)
   for (size_t i = 0; i < 8; i++) {
-    *(out_cv + 8 * 15 + i) = state[i].s15();
+    *(out_cv + 8 * 15 + i) = state[i].sF();
   }
 #endif
 }
