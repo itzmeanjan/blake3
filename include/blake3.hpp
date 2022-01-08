@@ -6,17 +6,20 @@
 #ifndef BLAKE3_SIMD_LANES
 #define BLAKE3_SIMD_LANES 4
 #else
-#if BLAKE3_SIMD_LANES == 4 || BLAKE3_SIMD_LANES == 8 || BLAKE3_SIMD_LANES == 16
+#if BLAKE3_SIMD_LANES == 2 || BLAKE3_SIMD_LANES == 4 ||                        \
+  BLAKE3_SIMD_LANES == 8 || BLAKE3_SIMD_LANES == 16
 #else
-#error Unsupported many SIMD lanes requested; supports only {4, 8, 16}
+#error Unsupported many SIMD lanes requested; supports only {2, 4, 8, 16}
 #endif
 #endif
 
-// Just to make sure user knows it's possible to choose SIMD lane count 
-// from {4, 8, 16}
+// Just to make sure user knows it's possible to choose SIMD lane count
+// from set {2, 4, 8, 16}
 #define STR2(x) #x
 #define STR(x) STR2(x)
-#define PREP_MSG(x) "Compressing " STR(x) " chunks in parallel; see https://github.com/itzmeanjan/blake3/pull/1"
+#define PREP_MSG(x)                                                            \
+  "Compressing " STR(                                                          \
+    x) " chunks in parallel; see https://github.com/itzmeanjan/blake3/pull/1"
 #pragma message PREP_MSG(BLAKE3_SIMD_LANES)
 
 namespace blake3 {
@@ -92,7 +95,9 @@ namespace v2 {
 
 void
 g(
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2* const state,
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4* const state,
 #elif BLAKE3_SIMD_LANES == 8
   sycl::uint8* const state,
@@ -103,7 +108,10 @@ g(
   size_t b,
   size_t c,
   size_t d,
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2 mx,
+  sycl::uint2 my
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4 mx,
   sycl::uint4 my
 #elif BLAKE3_SIMD_LANES == 8
@@ -117,7 +125,9 @@ g(
 
 void
 round(
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2* const state,
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4* const state,
 #elif BLAKE3_SIMD_LANES == 8
   sycl::uint8* const state,
@@ -154,7 +164,9 @@ hash(sycl::queue& q,
 
 inline void
 blake3::v2::g(
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2* const state,
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4* const state,
 #elif BLAKE3_SIMD_LANES == 8
   sycl::uint8* const state,
@@ -165,7 +177,10 @@ blake3::v2::g(
   size_t b,
   size_t c,
   size_t d,
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2 mx,
+  sycl::uint2 my
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4 mx,
   sycl::uint4 my
 #elif BLAKE3_SIMD_LANES == 8
@@ -178,7 +193,12 @@ blake3::v2::g(
 )
 {
 
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2 rrot16 = sycl::uint2(16);
+  sycl::uint2 rrot12 = sycl::uint2(20);
+  sycl::uint2 rrot8 = sycl::uint2(24);
+  sycl::uint2 rrot7 = sycl::uint2(25);
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4 rrot16 = sycl::uint4(16);
   sycl::uint4 rrot12 = sycl::uint4(20);
   sycl::uint4 rrot8 = sycl::uint4(24);
@@ -207,7 +227,9 @@ blake3::v2::g(
 
 inline void
 blake3::v2::round(
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2* const state,
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4* const state,
 #elif BLAKE3_SIMD_LANES == 8
   sycl::uint8* const state,
@@ -218,7 +240,10 @@ blake3::v2::round(
 {
   // column-wise hash state manipulation starts
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 0), *(msg + 16 * 1 + 0));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 1), *(msg + 16 * 1 + 1));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 0),
                                  *(msg + 16 * 1 + 0),
                                  *(msg + 16 * 2 + 0),
@@ -283,7 +308,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 2), *(msg + 16 * 1 + 2));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 3), *(msg + 16 * 1 + 3));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 2),
                                  *(msg + 16 * 1 + 2),
                                  *(msg + 16 * 2 + 2),
@@ -348,7 +376,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 4), *(msg + 16 * 1 + 4));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 5), *(msg + 16 * 1 + 5));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 4),
                                  *(msg + 16 * 1 + 4),
                                  *(msg + 16 * 2 + 4),
@@ -413,7 +444,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 6), *(msg + 16 * 1 + 6));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 7), *(msg + 16 * 1 + 7));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 6),
                                  *(msg + 16 * 1 + 6),
                                  *(msg + 16 * 2 + 6),
@@ -480,7 +514,10 @@ blake3::v2::round(
 
   // diagonal hash state manipulation starts
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 8), *(msg + 16 * 1 + 8));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 9), *(msg + 16 * 1 + 9));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 8),
                                  *(msg + 16 * 1 + 8),
                                  *(msg + 16 * 2 + 8),
@@ -545,7 +582,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 10), *(msg + 16 * 1 + 10));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 11), *(msg + 16 * 1 + 11));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 10),
                                  *(msg + 16 * 1 + 10),
                                  *(msg + 16 * 2 + 10),
@@ -610,7 +650,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 12), *(msg + 16 * 1 + 12));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 13), *(msg + 16 * 1 + 13));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 12),
                                  *(msg + 16 * 1 + 12),
                                  *(msg + 16 * 2 + 12),
@@ -675,7 +718,10 @@ blake3::v2::round(
   }
 
   {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 14), *(msg + 16 * 1 + 14));
+    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 15), *(msg + 16 * 1 + 15));
+#elif BLAKE3_SIMD_LANES == 4
     sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 14),
                                  *(msg + 16 * 1 + 14),
                                  *(msg + 16 * 2 + 14),
@@ -749,13 +795,34 @@ blake3::v2::compress(const sycl::uint* in_cv,
                      sycl::uint flags,
                      sycl::uint* const out_cv)
 {
-  // hash state of 4/ 8/ 16 chunks; to be processed in parallel ( clustered
+  // hash state of 2/ 4/ 8/ 16 chunks; to be compressed in parallel ( clustered
   // together )
   //
   // See section 5.3 of Blake3 specification for understanding
   // how this SIMD technique can be applied for arbitrary many SIMD lanes
 
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint2 state[16] = {
+    sycl::uint2(*(in_cv + 8 * 0 + 0), *(in_cv + 8 * 1 + 0)),
+    sycl::uint2(*(in_cv + 8 * 0 + 1), *(in_cv + 8 * 1 + 1)),
+    sycl::uint2(*(in_cv + 8 * 0 + 2), *(in_cv + 8 * 1 + 2)),
+    sycl::uint2(*(in_cv + 8 * 0 + 3), *(in_cv + 8 * 1 + 3)),
+    sycl::uint2(*(in_cv + 8 * 0 + 4), *(in_cv + 8 * 1 + 4)),
+    sycl::uint2(*(in_cv + 8 * 0 + 5), *(in_cv + 8 * 1 + 5)),
+    sycl::uint2(*(in_cv + 8 * 0 + 6), *(in_cv + 8 * 1 + 6)),
+    sycl::uint2(*(in_cv + 8 * 0 + 7), *(in_cv + 8 * 1 + 7)),
+    sycl::uint2(IV[0]),
+    sycl::uint2(IV[1]),
+    sycl::uint2(IV[2]),
+    sycl::uint2(IV[3]),
+    sycl::uint2(static_cast<sycl::uint>((counter + 0) & 0xffffffff),
+                static_cast<sycl::uint>((counter + 1) & 0xffffffff)),
+    sycl::uint2(static_cast<sycl::uint>((counter + 0) >> 32),
+                static_cast<sycl::uint>((counter + 1) >> 32)),
+    sycl::uint2(block_len),
+    sycl::uint2(flags)
+  };
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint4 state[16] = {
     sycl::uint4(*(in_cv + 8 * 0 + 0),
                 *(in_cv + 8 * 1 + 0),
@@ -1076,13 +1143,26 @@ blake3::v2::compress(const sycl::uint* in_cv,
     }
   }
 
-  // prepare output chaining values for 4/ 8/ 16 chunks
+  // prepare output chaining values for 2/ 4/ 8/ 16 chunks
   // being compressed in parallel
   for (size_t i = 0; i < 8; i++) {
     state[i] ^= state[i + 8];
   }
 
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+// writing 32 -bytes output chaining value
+// for first chunk in this batch
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 0 + i) = state[i].x();
+  }
+
+// output chaining value of last chunk in cluster
+#pragma unroll(4)
+  for (size_t i = 0; i < 8; i++) {
+    *(out_cv + 8 * 1 + i) = state[i].y();
+  }
+#elif BLAKE3_SIMD_LANES == 4
 // writing 32 -bytes output chaining value
 // for first chunk in this batch
 #pragma unroll(4)
@@ -1263,7 +1343,11 @@ blake3::v2::chunkify(const sycl::uint* key_words,
                      const sycl::uchar* input,
                      sycl::uint* const out_cv)
 {
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  sycl::uint in_cv[16] = { 0 };
+  sycl::uint priv_out_cv[16] = { 0 };
+  sycl::uint block_words[32] = { 0 };
+#elif BLAKE3_SIMD_LANES == 4
   sycl::uint in_cv[32] = { 0 };
   sycl::uint priv_out_cv[32] = { 0 };
   sycl::uint block_words[64] = { 0 };
@@ -1286,6 +1370,8 @@ blake3::v2::chunkify(const sycl::uint* key_words,
     }
   }
 
+  // 16 blocks per chunk; making total of 1024 bytes
+  // because each block is of 64 bytes length
   for (size_t i = 0; i < 16; i++) {
     // prepare input of N -many chunks for
     // consumption into hash state
@@ -1343,7 +1429,9 @@ blake3::v2::hash(sycl::queue& q,
   assert(chunk_count >= 1024); // minimum 1MB input required !
   assert((chunk_count & (chunk_count - 1)) == 0); // power of 2 check
 
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+  assert(wg_size <= (chunk_count >> 1));
+#elif BLAKE3_SIMD_LANES == 4
   assert(wg_size <= (chunk_count >> 2));
 #elif BLAKE3_SIMD_LANES == 8
   assert(wg_size <= (chunk_count >> 3));
@@ -1357,7 +1445,9 @@ blake3::v2::hash(sycl::queue& q,
 
   sycl::event evt_0 = q.parallel_for<class kernelBlake3HashV2ChunkifyLeafNodes>(
     sycl::nd_range<1>{ sycl::range<1>{
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+                         chunk_count >> 1
+#elif BLAKE3_SIMD_LANES == 4
                          chunk_count >> 2
 #elif BLAKE3_SIMD_LANES == 8
                          chunk_count >> 3
@@ -1371,7 +1461,9 @@ blake3::v2::hash(sycl::queue& q,
   // and operated on using single v2::chunkify
   // function invocation
 
-#if BLAKE3_SIMD_LANES == 4
+#if BLAKE3_SIMD_LANES == 2
+      const size_t idx = it.get_global_linear_id() << 1;
+#elif BLAKE3_SIMD_LANES == 4
       const size_t idx = it.get_global_linear_id() << 2;
 #elif BLAKE3_SIMD_LANES == 8
       const size_t idx = it.get_global_linear_id() << 3;

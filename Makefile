@@ -4,7 +4,7 @@ SYCLFLAGS = -fsycl
 SYCLCUDAFLAGS = -fsycl-targets=nvptx64-nvidia-cuda
 IFLAGS = -I ./include
 LFLAGS = -L ./test/target/release -lblake3_test -lpthread
-BLAKE3_SIMD_LANES_FLAGS = -DBLAKE3_SIMD_LANES=$(shell echo $(or $(BLAKE3_SIMD_LANES),4))
+BLAKE3_SIMD_LANES_FLAGS = -DBLAKE3_SIMD_LANES=$(shell echo $(or $(BLAKE3_SIMD_LANES),4)) # allowed values from set {2, 4, 8, 16}; default set to 4
 
 all: test_blake3
 
