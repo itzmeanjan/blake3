@@ -3,13 +3,15 @@ SYCL accelerated BLAKE3 Hash Implementation
 
 ## Motivation
 
-In recent times I've been exploring data parallel programming domain using SYCL, which is a heterogeneous accelerator programming API. Few weeks back I completed writing Zk-STARK friendly [Rescue Prime Hash using SYCL](https://github.com/itzmeanjan/ff-gpu/), then I decided to take a look at BLAKE3, because blake3's algorithmic construction naturally lends itself for heavy parallelization. Compared to Rescue Prime Hash, BLAKE3 should be able to much better harness accelerator's compute capability when input size is relatively large ( say >= 1MB ).
+In recent times I've been exploring data parallel programming domain using SYCL, which is a heterogeneous accelerator programming API. Few weeks back I completed writing Zk-STARK friendly [Rescue Prime Hash using SYCL](https://github.com/itzmeanjan/ff-gpu/), then I decided to take a look at BLAKE3, because blake3's algorithmic construction naturally lends itself for heavy parallelism. Compared to Rescue Prime Hash, BLAKE3 should be able to much better harness accelerator's compute capability when input size is relatively large ( say >= 1MB ).
 
-SYCL -backed Rescue Prime implementation shines when there are lots of (short) indepedent inputs and multiple Rescue Prime Hashes can be executed independently on each of them, because Rescue Prime can be vectorized but doesn't provide with good scope of parallelism.
+SYCL -backed Rescue Prime implementation shines when there are lots of (short) indepedent inputs and multiple Rescue Prime Hashes can be executed independently on each of them, because Rescue Prime can be vectorized but doesn't provide with good scope of (multi-threaded/ OpenCL work-item based) parallelism inherently.
 
-On the other hand SYCL implementation of BLAKE3 performs good when (single) input size is >= 1MB, then each 1KB chunk of input can be compressed parallelly --- very good fit for data parallel acceleration. After that BLAKE3 is simply Binary Merkle Tree construction, which itself is highly parallelizable, _though multi-phase kernel enqueue required due to hierarchical structure of Binary Merkle Tree_.
+On the other hand SYCL implementation of BLAKE3 performs good when (single) input size is >= 1MB, then each 1KB chunk of input can be compressed parallelly --- very good fit for data parallel acceleration. After that BLAKE3 is simply Binary Merkle Tree construction, which itself is highly parallelizable, _though multi-phase kernel enqueue required (increasing host-device interaction) due to hierarchical structure of Binary Merkle Tree, which results into data dependence_.
 
-In following implementation I heavily use SYCL2020's USM, which allows me to work with much familiar pointer arithmetics. I also use SYCL's vector intrinsics ( i.e. 4 -element array of type `sycl::uint4` ) for representing/ operating on hash state of BLAKE3.
+In following implementation I heavily use SYCL2020's USM, which allows me to work with much familiar pointer arithmetics. I also use SYCL's vector intrinsics ( i.e. 4 -element array of type `sycl::uint4` ) for representing/ operating on hash state of BLAKE3. Another way to accelerate BLAKE3 (as proposed in specification) is compressing multiple chunks in parallel by distributing hash state of those participating chunks across 16 vectors, each with N -lanes, where N = # -of chunks being compressed together. N can generally be {2, 4, 8, 16}. I've implemented that scheme under namespace `blake3::v2::*`, while simpler variant is placed under namespace `blake3::v1::*`. 
+
+**I strongly suggest you go through (hyperlinked below) BLAKE3 specification's section 5.3 for understanding where I got this idea from.**
 
 > I followed BLAKE3 [specification](https://github.com/BLAKE3-team/BLAKE3-specs/blob/ac78a717924dd9e6f16f547baa916c6f71470b1a/blake3.pdf) and used Rust reference [implementation](https://github.com/BLAKE3-team/BLAKE3/blob/da4c792d8094f35c05c41c9aeb5dfe4aa67ca1ac/reference_impl/reference_impl.rs) as my guide while writing SYCL implementation.
 
@@ -67,7 +69,7 @@ make format
 This is a header only library; so clone this repo and include [blake3.hpp](./include/blake3.hpp) in your SYCL project.
 
 ```cpp
-// Find full example https://github.com/itzmeanjan/blake3/blob/095e80f/test/src/main.cpp
+// Find full example https://github.com/itzmeanjan/blake3/blob/1de036a/test/src/main.cpp
 
 #include "blake3.hpp"
 #include <iostream>
@@ -88,7 +90,9 @@ int main() {
     // see https://github.com/itzmeanjan/blake3/blob/095e80f/test/src/main.cpp#L15-L37
 
     // invoke hasher; last argument denotes execution doesn't need to be timed
-    blake3::hash(q, in_d, i_size, chunk_count, wg_size, out_d, nullptr);
+    blake3::v1::hash(q, in_d, i_size, chunk_count, wg_size, out_d, nullptr); // either
+
+    blake3::v2::hash(q, in_d, i_size, chunk_count, wg_size, out_d, nullptr); // or
     // see https://github.com/itzmeanjan/blake3/blob/095e80f/test/src/main.cpp#L40-L43
 
     // deallocate heap memory
@@ -102,10 +106,18 @@ int main() {
 For executing accompanying test cases run
 
 ```bash
-make
+BLAKE3_SIMD_LANES=2 make; make clean
+BLAKE3_SIMD_LANES=4 make; make clean
+BLAKE3_SIMD_LANES=8 make; make clean
+BLAKE3_SIMD_LANES=16 make; make clean
 ```
 
-which prepares random input of 1MB; then applies BLAKE3 using [Rust implementation](https://docs.rs/blake3/1.2.0/blake3) and my [SYCL implementation](https://github.com/itzmeanjan/blake3/blob/095e80ff25436e18d0f80936eb20178d7a852a1f/include/blake3.hpp). Finally both of these 32 -bytes digests are asserted. ✅
+which prepares random input of 1MB; then applies BLAKE3 using [Rust implementation](https://docs.rs/blake3/1.2.0/blake3) and both of my [SYCL implementations of BLAKE3](https://github.com/itzmeanjan/blake3/blob/b459e95539fbc203f48bccbccd356ff21c1a59b6/include/blake3.hpp). Finally both of these 32 -bytes digests are asserted. ✅
+
+Implementation | Comment
+--- | ---
+`blake3::v1::hash(...)` | Each SYCL work-item compresses one and only one chunk
+`blake3::v2::hash(...)` | Each SYCL work-item can compress either 2/ 4/ 8/ 16 contiguous chunks; selectable using `BLAKE3_SIMD_LANES`
 
 ## Benchmark
 
