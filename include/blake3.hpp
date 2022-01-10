@@ -1133,10 +1133,10 @@ blake3::v2::compress(const sycl::uint* in_cv,
 
   // apply 7 rounds of mixing
   for (size_t i = 0; i < blake3::ROUNDS; i++) {
-    // round i = {0, 1, ... 7}
+    // round i = {0, 1, ... 6}
     blake3::v2::round(state, block_words);
 
-    if (i < 7) {
+    if (i < blake3::ROUNDS - 1) {
       for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
         blake3::permute(block_words + 16 * j);
       }
@@ -1614,7 +1614,7 @@ blake3::v1::round(sycl::uint4* const state, const sycl::uint* msg)
   *(state + 2) = *(state + 2) + *(state + 3);
   *(state + 1) = sycl::rotate(*(state + 1) ^ *(state + 2), rrot_7);
 
-  // non-diagonalize
+  // un-diagonalize
   *(state + 1) = (*(state + 1)).wxyz();
   *(state + 2) = (*(state + 2)).zwxy();
   *(state + 3) = (*(state + 3)).yzwx();
@@ -1691,14 +1691,11 @@ blake3::v1::compress(const sycl::uint* in_cv,
 
   // output chaining value of this block to be used as
   // input chaining value for next block in same chunk
-  *(out_cv + 0) = state[0].x();
-  *(out_cv + 1) = state[0].y();
-  *(out_cv + 2) = state[0].z();
-  *(out_cv + 3) = state[0].w();
-  *(out_cv + 4) = state[1].x();
-  *(out_cv + 5) = state[1].y();
-  *(out_cv + 6) = state[1].z();
-  *(out_cv + 7) = state[1].w();
+  {
+    auto priv_out_cv = sycl::private_ptr<sycl::uint>(out_cv);
+    state[0].store(0, priv_out_cv);
+    state[1].store(1, priv_out_cv);
+  }
 }
 
 inline void
