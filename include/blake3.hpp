@@ -1152,184 +1152,184 @@ blake3::v2::compress(const sycl::uint* in_cv,
 #if BLAKE3_SIMD_LANES == 2
 // writing 32 -bytes output chaining value
 // for first chunk in this batch
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].x();
   }
 
 // output chaining value of last chunk in cluster
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].y();
   }
 #elif BLAKE3_SIMD_LANES == 4
 // writing 32 -bytes output chaining value
 // for first chunk in this batch
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].x();
   }
 
 // output chaining value of second chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].y();
   }
 
 // output chaining value of third chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].z();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].w();
   }
 #elif BLAKE3_SIMD_LANES == 8
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].s0();
   }
 
 // output chaining value of second chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].s1();
   }
 
   // output chaining value of third chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].s2();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].s3();
   }
 
   // output chaining value of fifth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 4 + i) = state[i].s4();
   }
 
   // output chaining value of sixth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 5 + i) = state[i].s5();
   }
 
   // output chaining value of seventh chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 6 + i) = state[i].s6();
   }
 
   // output chaining value of eighth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 7 + i) = state[i].s7();
   }
 #elif BLAKE3_SIMD_LANES == 16
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].s0();
   }
 
   // output chaining value of second chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].s1();
   }
 
   // output chaining value of third chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].s2();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].s3();
   }
 
   // output chaining value of fifth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 4 + i) = state[i].s4();
   }
 
   // output chaining value of sixth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 5 + i) = state[i].s5();
   }
 
   // output chaining value of seventh chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 6 + i) = state[i].s6();
   }
 
   // output chaining value of eighth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 7 + i) = state[i].s7();
   }
 
   // output chaining value of ninth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 8 + i) = state[i].s8();
   }
 
   // output chaining value of tenth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 9 + i) = state[i].s9();
   }
 
   // output chaining value of eleventh chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 10 + i) = state[i].sA();
   }
 
   // output chaining value of twelveth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 11 + i) = state[i].sB();
   }
 
   // output chaining value of thirteenth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 12 + i) = state[i].sC();
   }
 
   // output chaining value of fourteenth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 13 + i) = state[i].sD();
   }
 
   // output chaining value of fifteenth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 14 + i) = state[i].sE();
   }
 
 // output chaining value of sixteenth chunk
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 15 + i) = state[i].sF();
   }
@@ -1364,7 +1364,7 @@ blake3::v2::chunkify(const sycl::uint* key_words,
   for (size_t i = 0; i < 8; i++) {
     sycl::uint tmp = *(key_words + i);
 
-#pragma unroll(4)
+#pragma unroll
     for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
       in_cv[i + 8 * j] = tmp;
     }
@@ -1408,7 +1408,7 @@ blake3::v2::chunkify(const sycl::uint* key_words,
     }
 
     if (i < 15) {
-#pragma unroll(4)
+#pragma unroll
       for (size_t j = 0; j < 8 * BLAKE3_SIMD_LANES; j++) {
         in_cv[j] = priv_out_cv[j];
       }
@@ -1736,7 +1736,7 @@ blake3::v1::chunkify(const sycl::uint* key_words,
   sycl::uint priv_out_cv[8] = { 0 };
   sycl::uint block_words[16] = { 0 };
 
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     in_cv[i] = *(key_words + i);
   }
@@ -1771,7 +1771,7 @@ blake3::v1::chunkify(const sycl::uint* key_words,
     }
 
     if (i < 15) {
-#pragma unroll(4)
+#pragma unroll
       for (size_t j = 0; j < 8; j++) {
         in_cv[j] = priv_out_cv[j];
       }
@@ -1788,7 +1788,7 @@ blake3::parent_cv(const sycl::uint* left_cv,
 {
   sycl::uint block_words[16] = { 0 };
 
-#pragma unroll(4)
+#pragma unroll
   for (size_t i = 0; i < 8; i++) {
     block_words[i] = *(left_cv + i);
     block_words[i + 8] = *(right_cv + i);
