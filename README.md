@@ -119,6 +119,22 @@ Implementation | Comment
 `blake3::v1::hash(...)` | Each SYCL work-item compresses one and only one chunk
 `blake3::v2::hash(...)` | Each SYCL work-item can compress either 2/ 4/ 8/ 16 contiguous chunks; selectable using `BLAKE3_SIMD_LANES`
 
+## Dockerised Testing
+
+For running test cases inside Docker container (without installing any dependencies on your host, expect `docker` itself) consider using Dockerfile provided with.
+
+Build image
+
+```bash
+docker build -t blake3-test . # can be time consuming
+```
+
+Then run test cases inside container
+
+```bash
+docker run blake3-test
+```
+
 ## Benchmark
 
 Following benchmark results denote what was only kernel execution time ( on accelerator ) when computing BLAKE3 hash ( v1 & v2 ) using SYCL implementation and input was of given size on first column. Input is prepared on host; then explicitly transferred to accelerator because I'm using `sycl::malloc_host` and `sycl::malloc_device` for heap allocation; finally computed BLAKE3 digest ( i.e. 32 -bytes ) is transferred back to host. Though none of these data transfer cost are included in following numbers presented. For benchmarking purposes, I enable profiling in SYCL queue and sum of all differences between kernel enqueue event's start and end times are taken. I've also used a SYCL work-group size of 32 for each of these executions rounds; total of 4 rounds are executed for each row before taking average of obtained kernel execution time.
