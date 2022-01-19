@@ -178,41 +178,41 @@ blake3::v2::g(
   size_t c,
   size_t d,
 #if BLAKE3_SIMD_LANES == 2
-  sycl::uint2 mx,
-  sycl::uint2 my
+  const sycl::uint2 mx,
+  const sycl::uint2 my
 #elif BLAKE3_SIMD_LANES == 4
-  sycl::uint4 mx,
-  sycl::uint4 my
+  const sycl::uint4 mx,
+  const sycl::uint4 my
 #elif BLAKE3_SIMD_LANES == 8
-  sycl::uint8 mx,
-  sycl::uint8 my
+  const sycl::uint8 mx,
+  const sycl::uint8 my
 #elif BLAKE3_SIMD_LANES == 16
-  sycl::uint16 mx,
-  sycl::uint16 my
+  const sycl::uint16 mx,
+  const sycl::uint16 my
 #endif
 )
 {
 
 #if BLAKE3_SIMD_LANES == 2
-  sycl::uint2 rrot16 = sycl::uint2(16);
-  sycl::uint2 rrot12 = sycl::uint2(20);
-  sycl::uint2 rrot8 = sycl::uint2(24);
-  sycl::uint2 rrot7 = sycl::uint2(25);
+  const sycl::uint2 rrot16 = sycl::uint2(16);
+  const sycl::uint2 rrot12 = sycl::uint2(20);
+  const sycl::uint2 rrot8 = sycl::uint2(24);
+  const sycl::uint2 rrot7 = sycl::uint2(25);
 #elif BLAKE3_SIMD_LANES == 4
-  sycl::uint4 rrot16 = sycl::uint4(16);
-  sycl::uint4 rrot12 = sycl::uint4(20);
-  sycl::uint4 rrot8 = sycl::uint4(24);
-  sycl::uint4 rrot7 = sycl::uint4(25);
+  const sycl::uint4 rrot16 = sycl::uint4(16);
+  const sycl::uint4 rrot12 = sycl::uint4(20);
+  const sycl::uint4 rrot8 = sycl::uint4(24);
+  const sycl::uint4 rrot7 = sycl::uint4(25);
 #elif BLAKE3_SIMD_LANES == 8
-  sycl::uint8 rrot16 = sycl::uint8(16);
-  sycl::uint8 rrot12 = sycl::uint8(20);
-  sycl::uint8 rrot8 = sycl::uint8(24);
-  sycl::uint8 rrot7 = sycl::uint8(25);
+  const sycl::uint8 rrot16 = sycl::uint8(16);
+  const sycl::uint8 rrot12 = sycl::uint8(20);
+  const sycl::uint8 rrot8 = sycl::uint8(24);
+  const sycl::uint8 rrot7 = sycl::uint8(25);
 #elif BLAKE3_SIMD_LANES == 16
-  sycl::uint16 rrot16 = sycl::uint16(16);
-  sycl::uint16 rrot12 = sycl::uint16(20);
-  sycl::uint16 rrot8 = sycl::uint16(24);
-  sycl::uint16 rrot7 = sycl::uint16(25);
+  const sycl::uint16 rrot16 = sycl::uint16(16);
+  const sycl::uint16 rrot12 = sycl::uint16(20);
+  const sycl::uint16 rrot8 = sycl::uint16(24);
+  const sycl::uint16 rrot7 = sycl::uint16(25);
 #endif
 
   *(state + a) = *(state + a) + *(state + b) + mx;
@@ -241,67 +241,69 @@ blake3::v2::round(
   // column-wise hash state manipulation starts
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 0), *(msg + 16 * 1 + 0));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 1), *(msg + 16 * 1 + 1));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 0), *(msg + 16 * 1 + 0));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 1), *(msg + 16 * 1 + 1));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 0),
-                                 *(msg + 16 * 1 + 0),
-                                 *(msg + 16 * 2 + 0),
-                                 *(msg + 16 * 3 + 0));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 1),
-                                 *(msg + 16 * 1 + 1),
-                                 *(msg + 16 * 2 + 1),
-                                 *(msg + 16 * 3 + 1));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 0),
+                                       *(msg + 16 * 1 + 0),
+                                       *(msg + 16 * 2 + 0),
+                                       *(msg + 16 * 3 + 0));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 1),
+                                       *(msg + 16 * 1 + 1),
+                                       *(msg + 16 * 2 + 1),
+                                       *(msg + 16 * 3 + 1));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 0),
-                                 *(msg + 16 * 1 + 0),
-                                 *(msg + 16 * 2 + 0),
-                                 *(msg + 16 * 3 + 0),
-                                 *(msg + 16 * 4 + 0),
-                                 *(msg + 16 * 5 + 0),
-                                 *(msg + 16 * 6 + 0),
-                                 *(msg + 16 * 7 + 0));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 1),
-                                 *(msg + 16 * 1 + 1),
-                                 *(msg + 16 * 2 + 1),
-                                 *(msg + 16 * 3 + 1),
-                                 *(msg + 16 * 4 + 1),
-                                 *(msg + 16 * 5 + 1),
-                                 *(msg + 16 * 6 + 1),
-                                 *(msg + 16 * 7 + 1));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 0),
+                                       *(msg + 16 * 1 + 0),
+                                       *(msg + 16 * 2 + 0),
+                                       *(msg + 16 * 3 + 0),
+                                       *(msg + 16 * 4 + 0),
+                                       *(msg + 16 * 5 + 0),
+                                       *(msg + 16 * 6 + 0),
+                                       *(msg + 16 * 7 + 0));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 1),
+                                       *(msg + 16 * 1 + 1),
+                                       *(msg + 16 * 2 + 1),
+                                       *(msg + 16 * 3 + 1),
+                                       *(msg + 16 * 4 + 1),
+                                       *(msg + 16 * 5 + 1),
+                                       *(msg + 16 * 6 + 1),
+                                       *(msg + 16 * 7 + 1));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 0),
-                                   *(msg + 16 * 1 + 0),
-                                   *(msg + 16 * 2 + 0),
-                                   *(msg + 16 * 3 + 0),
-                                   *(msg + 16 * 4 + 0),
-                                   *(msg + 16 * 5 + 0),
-                                   *(msg + 16 * 6 + 0),
-                                   *(msg + 16 * 7 + 0),
-                                   *(msg + 16 * 8 + 0),
-                                   *(msg + 16 * 9 + 0),
-                                   *(msg + 16 * 10 + 0),
-                                   *(msg + 16 * 11 + 0),
-                                   *(msg + 16 * 12 + 0),
-                                   *(msg + 16 * 13 + 0),
-                                   *(msg + 16 * 14 + 0),
-                                   *(msg + 16 * 15 + 0));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 1),
-                                   *(msg + 16 * 1 + 1),
-                                   *(msg + 16 * 2 + 1),
-                                   *(msg + 16 * 3 + 1),
-                                   *(msg + 16 * 4 + 1),
-                                   *(msg + 16 * 5 + 1),
-                                   *(msg + 16 * 6 + 1),
-                                   *(msg + 16 * 7 + 1),
-                                   *(msg + 16 * 8 + 1),
-                                   *(msg + 16 * 9 + 1),
-                                   *(msg + 16 * 10 + 1),
-                                   *(msg + 16 * 11 + 1),
-                                   *(msg + 16 * 12 + 1),
-                                   *(msg + 16 * 13 + 1),
-                                   *(msg + 16 * 14 + 1),
-                                   *(msg + 16 * 15 + 1));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 0),
+                                         *(msg + 16 * 1 + 0),
+                                         *(msg + 16 * 2 + 0),
+                                         *(msg + 16 * 3 + 0),
+                                         *(msg + 16 * 4 + 0),
+                                         *(msg + 16 * 5 + 0),
+                                         *(msg + 16 * 6 + 0),
+                                         *(msg + 16 * 7 + 0),
+                                         *(msg + 16 * 8 + 0),
+                                         *(msg + 16 * 9 + 0),
+                                         *(msg + 16 * 10 + 0),
+                                         *(msg + 16 * 11 + 0),
+                                         *(msg + 16 * 12 + 0),
+                                         *(msg + 16 * 13 + 0),
+                                         *(msg + 16 * 14 + 0),
+                                         *(msg + 16 * 15 + 0));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 1),
+                                         *(msg + 16 * 1 + 1),
+                                         *(msg + 16 * 2 + 1),
+                                         *(msg + 16 * 3 + 1),
+                                         *(msg + 16 * 4 + 1),
+                                         *(msg + 16 * 5 + 1),
+                                         *(msg + 16 * 6 + 1),
+                                         *(msg + 16 * 7 + 1),
+                                         *(msg + 16 * 8 + 1),
+                                         *(msg + 16 * 9 + 1),
+                                         *(msg + 16 * 10 + 1),
+                                         *(msg + 16 * 11 + 1),
+                                         *(msg + 16 * 12 + 1),
+                                         *(msg + 16 * 13 + 1),
+                                         *(msg + 16 * 14 + 1),
+                                         *(msg + 16 * 15 + 1));
 #endif
 
     blake3::v2::g(state, 0, 4, 8, 12, mx, my);
@@ -309,67 +311,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 2), *(msg + 16 * 1 + 2));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 3), *(msg + 16 * 1 + 3));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 2), *(msg + 16 * 1 + 2));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 3), *(msg + 16 * 1 + 3));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 2),
-                                 *(msg + 16 * 1 + 2),
-                                 *(msg + 16 * 2 + 2),
-                                 *(msg + 16 * 3 + 2));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 3),
-                                 *(msg + 16 * 1 + 3),
-                                 *(msg + 16 * 2 + 3),
-                                 *(msg + 16 * 3 + 3));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 2),
+                                       *(msg + 16 * 1 + 2),
+                                       *(msg + 16 * 2 + 2),
+                                       *(msg + 16 * 3 + 2));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 3),
+                                       *(msg + 16 * 1 + 3),
+                                       *(msg + 16 * 2 + 3),
+                                       *(msg + 16 * 3 + 3));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 2),
-                                 *(msg + 16 * 1 + 2),
-                                 *(msg + 16 * 2 + 2),
-                                 *(msg + 16 * 3 + 2),
-                                 *(msg + 16 * 4 + 2),
-                                 *(msg + 16 * 5 + 2),
-                                 *(msg + 16 * 6 + 2),
-                                 *(msg + 16 * 7 + 2));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 3),
-                                 *(msg + 16 * 1 + 3),
-                                 *(msg + 16 * 2 + 3),
-                                 *(msg + 16 * 3 + 3),
-                                 *(msg + 16 * 4 + 3),
-                                 *(msg + 16 * 5 + 3),
-                                 *(msg + 16 * 6 + 3),
-                                 *(msg + 16 * 7 + 3));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 2),
+                                       *(msg + 16 * 1 + 2),
+                                       *(msg + 16 * 2 + 2),
+                                       *(msg + 16 * 3 + 2),
+                                       *(msg + 16 * 4 + 2),
+                                       *(msg + 16 * 5 + 2),
+                                       *(msg + 16 * 6 + 2),
+                                       *(msg + 16 * 7 + 2));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 3),
+                                       *(msg + 16 * 1 + 3),
+                                       *(msg + 16 * 2 + 3),
+                                       *(msg + 16 * 3 + 3),
+                                       *(msg + 16 * 4 + 3),
+                                       *(msg + 16 * 5 + 3),
+                                       *(msg + 16 * 6 + 3),
+                                       *(msg + 16 * 7 + 3));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 2),
-                                   *(msg + 16 * 1 + 2),
-                                   *(msg + 16 * 2 + 2),
-                                   *(msg + 16 * 3 + 2),
-                                   *(msg + 16 * 4 + 2),
-                                   *(msg + 16 * 5 + 2),
-                                   *(msg + 16 * 6 + 2),
-                                   *(msg + 16 * 7 + 2),
-                                   *(msg + 16 * 8 + 2),
-                                   *(msg + 16 * 9 + 2),
-                                   *(msg + 16 * 10 + 2),
-                                   *(msg + 16 * 11 + 2),
-                                   *(msg + 16 * 12 + 2),
-                                   *(msg + 16 * 13 + 2),
-                                   *(msg + 16 * 14 + 2),
-                                   *(msg + 16 * 15 + 2));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 3),
-                                   *(msg + 16 * 1 + 3),
-                                   *(msg + 16 * 2 + 3),
-                                   *(msg + 16 * 3 + 3),
-                                   *(msg + 16 * 4 + 3),
-                                   *(msg + 16 * 5 + 3),
-                                   *(msg + 16 * 6 + 3),
-                                   *(msg + 16 * 7 + 3),
-                                   *(msg + 16 * 8 + 3),
-                                   *(msg + 16 * 9 + 3),
-                                   *(msg + 16 * 10 + 3),
-                                   *(msg + 16 * 11 + 3),
-                                   *(msg + 16 * 12 + 3),
-                                   *(msg + 16 * 13 + 3),
-                                   *(msg + 16 * 14 + 3),
-                                   *(msg + 16 * 15 + 3));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 2),
+                                         *(msg + 16 * 1 + 2),
+                                         *(msg + 16 * 2 + 2),
+                                         *(msg + 16 * 3 + 2),
+                                         *(msg + 16 * 4 + 2),
+                                         *(msg + 16 * 5 + 2),
+                                         *(msg + 16 * 6 + 2),
+                                         *(msg + 16 * 7 + 2),
+                                         *(msg + 16 * 8 + 2),
+                                         *(msg + 16 * 9 + 2),
+                                         *(msg + 16 * 10 + 2),
+                                         *(msg + 16 * 11 + 2),
+                                         *(msg + 16 * 12 + 2),
+                                         *(msg + 16 * 13 + 2),
+                                         *(msg + 16 * 14 + 2),
+                                         *(msg + 16 * 15 + 2));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 3),
+                                         *(msg + 16 * 1 + 3),
+                                         *(msg + 16 * 2 + 3),
+                                         *(msg + 16 * 3 + 3),
+                                         *(msg + 16 * 4 + 3),
+                                         *(msg + 16 * 5 + 3),
+                                         *(msg + 16 * 6 + 3),
+                                         *(msg + 16 * 7 + 3),
+                                         *(msg + 16 * 8 + 3),
+                                         *(msg + 16 * 9 + 3),
+                                         *(msg + 16 * 10 + 3),
+                                         *(msg + 16 * 11 + 3),
+                                         *(msg + 16 * 12 + 3),
+                                         *(msg + 16 * 13 + 3),
+                                         *(msg + 16 * 14 + 3),
+                                         *(msg + 16 * 15 + 3));
 #endif
 
     blake3::v2::g(state, 1, 5, 9, 13, mx, my);
@@ -377,67 +381,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 4), *(msg + 16 * 1 + 4));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 5), *(msg + 16 * 1 + 5));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 4), *(msg + 16 * 1 + 4));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 5), *(msg + 16 * 1 + 5));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 4),
-                                 *(msg + 16 * 1 + 4),
-                                 *(msg + 16 * 2 + 4),
-                                 *(msg + 16 * 3 + 4));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 5),
-                                 *(msg + 16 * 1 + 5),
-                                 *(msg + 16 * 2 + 5),
-                                 *(msg + 16 * 3 + 5));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 4),
+                                       *(msg + 16 * 1 + 4),
+                                       *(msg + 16 * 2 + 4),
+                                       *(msg + 16 * 3 + 4));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 5),
+                                       *(msg + 16 * 1 + 5),
+                                       *(msg + 16 * 2 + 5),
+                                       *(msg + 16 * 3 + 5));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 4),
-                                 *(msg + 16 * 1 + 4),
-                                 *(msg + 16 * 2 + 4),
-                                 *(msg + 16 * 3 + 4),
-                                 *(msg + 16 * 4 + 4),
-                                 *(msg + 16 * 5 + 4),
-                                 *(msg + 16 * 6 + 4),
-                                 *(msg + 16 * 7 + 4));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 5),
-                                 *(msg + 16 * 1 + 5),
-                                 *(msg + 16 * 2 + 5),
-                                 *(msg + 16 * 3 + 5),
-                                 *(msg + 16 * 4 + 5),
-                                 *(msg + 16 * 5 + 5),
-                                 *(msg + 16 * 6 + 5),
-                                 *(msg + 16 * 7 + 5));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 4),
+                                       *(msg + 16 * 1 + 4),
+                                       *(msg + 16 * 2 + 4),
+                                       *(msg + 16 * 3 + 4),
+                                       *(msg + 16 * 4 + 4),
+                                       *(msg + 16 * 5 + 4),
+                                       *(msg + 16 * 6 + 4),
+                                       *(msg + 16 * 7 + 4));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 5),
+                                       *(msg + 16 * 1 + 5),
+                                       *(msg + 16 * 2 + 5),
+                                       *(msg + 16 * 3 + 5),
+                                       *(msg + 16 * 4 + 5),
+                                       *(msg + 16 * 5 + 5),
+                                       *(msg + 16 * 6 + 5),
+                                       *(msg + 16 * 7 + 5));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 4),
-                                   *(msg + 16 * 1 + 4),
-                                   *(msg + 16 * 2 + 4),
-                                   *(msg + 16 * 3 + 4),
-                                   *(msg + 16 * 4 + 4),
-                                   *(msg + 16 * 5 + 4),
-                                   *(msg + 16 * 6 + 4),
-                                   *(msg + 16 * 7 + 4),
-                                   *(msg + 16 * 8 + 4),
-                                   *(msg + 16 * 9 + 4),
-                                   *(msg + 16 * 10 + 4),
-                                   *(msg + 16 * 11 + 4),
-                                   *(msg + 16 * 12 + 4),
-                                   *(msg + 16 * 13 + 4),
-                                   *(msg + 16 * 14 + 4),
-                                   *(msg + 16 * 15 + 4));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 5),
-                                   *(msg + 16 * 1 + 5),
-                                   *(msg + 16 * 2 + 5),
-                                   *(msg + 16 * 3 + 5),
-                                   *(msg + 16 * 4 + 5),
-                                   *(msg + 16 * 5 + 5),
-                                   *(msg + 16 * 6 + 5),
-                                   *(msg + 16 * 7 + 5),
-                                   *(msg + 16 * 8 + 5),
-                                   *(msg + 16 * 9 + 5),
-                                   *(msg + 16 * 10 + 5),
-                                   *(msg + 16 * 11 + 5),
-                                   *(msg + 16 * 12 + 5),
-                                   *(msg + 16 * 13 + 5),
-                                   *(msg + 16 * 14 + 5),
-                                   *(msg + 16 * 15 + 5));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 4),
+                                         *(msg + 16 * 1 + 4),
+                                         *(msg + 16 * 2 + 4),
+                                         *(msg + 16 * 3 + 4),
+                                         *(msg + 16 * 4 + 4),
+                                         *(msg + 16 * 5 + 4),
+                                         *(msg + 16 * 6 + 4),
+                                         *(msg + 16 * 7 + 4),
+                                         *(msg + 16 * 8 + 4),
+                                         *(msg + 16 * 9 + 4),
+                                         *(msg + 16 * 10 + 4),
+                                         *(msg + 16 * 11 + 4),
+                                         *(msg + 16 * 12 + 4),
+                                         *(msg + 16 * 13 + 4),
+                                         *(msg + 16 * 14 + 4),
+                                         *(msg + 16 * 15 + 4));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 5),
+                                         *(msg + 16 * 1 + 5),
+                                         *(msg + 16 * 2 + 5),
+                                         *(msg + 16 * 3 + 5),
+                                         *(msg + 16 * 4 + 5),
+                                         *(msg + 16 * 5 + 5),
+                                         *(msg + 16 * 6 + 5),
+                                         *(msg + 16 * 7 + 5),
+                                         *(msg + 16 * 8 + 5),
+                                         *(msg + 16 * 9 + 5),
+                                         *(msg + 16 * 10 + 5),
+                                         *(msg + 16 * 11 + 5),
+                                         *(msg + 16 * 12 + 5),
+                                         *(msg + 16 * 13 + 5),
+                                         *(msg + 16 * 14 + 5),
+                                         *(msg + 16 * 15 + 5));
 #endif
 
     blake3::v2::g(state, 2, 6, 10, 14, mx, my);
@@ -445,67 +451,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 6), *(msg + 16 * 1 + 6));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 7), *(msg + 16 * 1 + 7));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 6), *(msg + 16 * 1 + 6));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 7), *(msg + 16 * 1 + 7));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 6),
-                                 *(msg + 16 * 1 + 6),
-                                 *(msg + 16 * 2 + 6),
-                                 *(msg + 16 * 3 + 6));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 7),
-                                 *(msg + 16 * 1 + 7),
-                                 *(msg + 16 * 2 + 7),
-                                 *(msg + 16 * 3 + 7));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 6),
+                                       *(msg + 16 * 1 + 6),
+                                       *(msg + 16 * 2 + 6),
+                                       *(msg + 16 * 3 + 6));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 7),
+                                       *(msg + 16 * 1 + 7),
+                                       *(msg + 16 * 2 + 7),
+                                       *(msg + 16 * 3 + 7));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 6),
-                                 *(msg + 16 * 1 + 6),
-                                 *(msg + 16 * 2 + 6),
-                                 *(msg + 16 * 3 + 6),
-                                 *(msg + 16 * 4 + 6),
-                                 *(msg + 16 * 5 + 6),
-                                 *(msg + 16 * 6 + 6),
-                                 *(msg + 16 * 7 + 6));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 7),
-                                 *(msg + 16 * 1 + 7),
-                                 *(msg + 16 * 2 + 7),
-                                 *(msg + 16 * 3 + 7),
-                                 *(msg + 16 * 4 + 7),
-                                 *(msg + 16 * 5 + 7),
-                                 *(msg + 16 * 6 + 7),
-                                 *(msg + 16 * 7 + 7));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 6),
+                                       *(msg + 16 * 1 + 6),
+                                       *(msg + 16 * 2 + 6),
+                                       *(msg + 16 * 3 + 6),
+                                       *(msg + 16 * 4 + 6),
+                                       *(msg + 16 * 5 + 6),
+                                       *(msg + 16 * 6 + 6),
+                                       *(msg + 16 * 7 + 6));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 7),
+                                       *(msg + 16 * 1 + 7),
+                                       *(msg + 16 * 2 + 7),
+                                       *(msg + 16 * 3 + 7),
+                                       *(msg + 16 * 4 + 7),
+                                       *(msg + 16 * 5 + 7),
+                                       *(msg + 16 * 6 + 7),
+                                       *(msg + 16 * 7 + 7));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 6),
-                                   *(msg + 16 * 1 + 6),
-                                   *(msg + 16 * 2 + 6),
-                                   *(msg + 16 * 3 + 6),
-                                   *(msg + 16 * 4 + 6),
-                                   *(msg + 16 * 5 + 6),
-                                   *(msg + 16 * 6 + 6),
-                                   *(msg + 16 * 7 + 6),
-                                   *(msg + 16 * 8 + 6),
-                                   *(msg + 16 * 9 + 6),
-                                   *(msg + 16 * 10 + 6),
-                                   *(msg + 16 * 11 + 6),
-                                   *(msg + 16 * 12 + 6),
-                                   *(msg + 16 * 13 + 6),
-                                   *(msg + 16 * 14 + 6),
-                                   *(msg + 16 * 15 + 6));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 7),
-                                   *(msg + 16 * 1 + 7),
-                                   *(msg + 16 * 2 + 7),
-                                   *(msg + 16 * 3 + 7),
-                                   *(msg + 16 * 4 + 7),
-                                   *(msg + 16 * 5 + 7),
-                                   *(msg + 16 * 6 + 7),
-                                   *(msg + 16 * 7 + 7),
-                                   *(msg + 16 * 8 + 7),
-                                   *(msg + 16 * 9 + 7),
-                                   *(msg + 16 * 10 + 7),
-                                   *(msg + 16 * 11 + 7),
-                                   *(msg + 16 * 12 + 7),
-                                   *(msg + 16 * 13 + 7),
-                                   *(msg + 16 * 14 + 7),
-                                   *(msg + 16 * 15 + 7));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 6),
+                                         *(msg + 16 * 1 + 6),
+                                         *(msg + 16 * 2 + 6),
+                                         *(msg + 16 * 3 + 6),
+                                         *(msg + 16 * 4 + 6),
+                                         *(msg + 16 * 5 + 6),
+                                         *(msg + 16 * 6 + 6),
+                                         *(msg + 16 * 7 + 6),
+                                         *(msg + 16 * 8 + 6),
+                                         *(msg + 16 * 9 + 6),
+                                         *(msg + 16 * 10 + 6),
+                                         *(msg + 16 * 11 + 6),
+                                         *(msg + 16 * 12 + 6),
+                                         *(msg + 16 * 13 + 6),
+                                         *(msg + 16 * 14 + 6),
+                                         *(msg + 16 * 15 + 6));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 7),
+                                         *(msg + 16 * 1 + 7),
+                                         *(msg + 16 * 2 + 7),
+                                         *(msg + 16 * 3 + 7),
+                                         *(msg + 16 * 4 + 7),
+                                         *(msg + 16 * 5 + 7),
+                                         *(msg + 16 * 6 + 7),
+                                         *(msg + 16 * 7 + 7),
+                                         *(msg + 16 * 8 + 7),
+                                         *(msg + 16 * 9 + 7),
+                                         *(msg + 16 * 10 + 7),
+                                         *(msg + 16 * 11 + 7),
+                                         *(msg + 16 * 12 + 7),
+                                         *(msg + 16 * 13 + 7),
+                                         *(msg + 16 * 14 + 7),
+                                         *(msg + 16 * 15 + 7));
 #endif
 
     blake3::v2::g(state, 3, 7, 11, 15, mx, my);
@@ -515,67 +523,69 @@ blake3::v2::round(
   // diagonal hash state manipulation starts
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 8), *(msg + 16 * 1 + 8));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 9), *(msg + 16 * 1 + 9));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 8), *(msg + 16 * 1 + 8));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 9), *(msg + 16 * 1 + 9));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 8),
-                                 *(msg + 16 * 1 + 8),
-                                 *(msg + 16 * 2 + 8),
-                                 *(msg + 16 * 3 + 8));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 9),
-                                 *(msg + 16 * 1 + 9),
-                                 *(msg + 16 * 2 + 9),
-                                 *(msg + 16 * 3 + 9));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 8),
+                                       *(msg + 16 * 1 + 8),
+                                       *(msg + 16 * 2 + 8),
+                                       *(msg + 16 * 3 + 8));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 9),
+                                       *(msg + 16 * 1 + 9),
+                                       *(msg + 16 * 2 + 9),
+                                       *(msg + 16 * 3 + 9));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 8),
-                                 *(msg + 16 * 1 + 8),
-                                 *(msg + 16 * 2 + 8),
-                                 *(msg + 16 * 3 + 8),
-                                 *(msg + 16 * 4 + 8),
-                                 *(msg + 16 * 5 + 8),
-                                 *(msg + 16 * 6 + 8),
-                                 *(msg + 16 * 7 + 8));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 9),
-                                 *(msg + 16 * 1 + 9),
-                                 *(msg + 16 * 2 + 9),
-                                 *(msg + 16 * 3 + 9),
-                                 *(msg + 16 * 4 + 9),
-                                 *(msg + 16 * 5 + 9),
-                                 *(msg + 16 * 6 + 9),
-                                 *(msg + 16 * 7 + 9));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 8),
+                                       *(msg + 16 * 1 + 8),
+                                       *(msg + 16 * 2 + 8),
+                                       *(msg + 16 * 3 + 8),
+                                       *(msg + 16 * 4 + 8),
+                                       *(msg + 16 * 5 + 8),
+                                       *(msg + 16 * 6 + 8),
+                                       *(msg + 16 * 7 + 8));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 9),
+                                       *(msg + 16 * 1 + 9),
+                                       *(msg + 16 * 2 + 9),
+                                       *(msg + 16 * 3 + 9),
+                                       *(msg + 16 * 4 + 9),
+                                       *(msg + 16 * 5 + 9),
+                                       *(msg + 16 * 6 + 9),
+                                       *(msg + 16 * 7 + 9));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 8),
-                                   *(msg + 16 * 1 + 8),
-                                   *(msg + 16 * 2 + 8),
-                                   *(msg + 16 * 3 + 8),
-                                   *(msg + 16 * 4 + 8),
-                                   *(msg + 16 * 5 + 8),
-                                   *(msg + 16 * 6 + 8),
-                                   *(msg + 16 * 7 + 8),
-                                   *(msg + 16 * 8 + 8),
-                                   *(msg + 16 * 9 + 8),
-                                   *(msg + 16 * 10 + 8),
-                                   *(msg + 16 * 11 + 8),
-                                   *(msg + 16 * 12 + 8),
-                                   *(msg + 16 * 13 + 8),
-                                   *(msg + 16 * 14 + 8),
-                                   *(msg + 16 * 15 + 8));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 9),
-                                   *(msg + 16 * 1 + 9),
-                                   *(msg + 16 * 2 + 9),
-                                   *(msg + 16 * 3 + 9),
-                                   *(msg + 16 * 4 + 9),
-                                   *(msg + 16 * 5 + 9),
-                                   *(msg + 16 * 6 + 9),
-                                   *(msg + 16 * 7 + 9),
-                                   *(msg + 16 * 8 + 9),
-                                   *(msg + 16 * 9 + 9),
-                                   *(msg + 16 * 10 + 9),
-                                   *(msg + 16 * 11 + 9),
-                                   *(msg + 16 * 12 + 9),
-                                   *(msg + 16 * 13 + 9),
-                                   *(msg + 16 * 14 + 9),
-                                   *(msg + 16 * 15 + 9));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 8),
+                                         *(msg + 16 * 1 + 8),
+                                         *(msg + 16 * 2 + 8),
+                                         *(msg + 16 * 3 + 8),
+                                         *(msg + 16 * 4 + 8),
+                                         *(msg + 16 * 5 + 8),
+                                         *(msg + 16 * 6 + 8),
+                                         *(msg + 16 * 7 + 8),
+                                         *(msg + 16 * 8 + 8),
+                                         *(msg + 16 * 9 + 8),
+                                         *(msg + 16 * 10 + 8),
+                                         *(msg + 16 * 11 + 8),
+                                         *(msg + 16 * 12 + 8),
+                                         *(msg + 16 * 13 + 8),
+                                         *(msg + 16 * 14 + 8),
+                                         *(msg + 16 * 15 + 8));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 9),
+                                         *(msg + 16 * 1 + 9),
+                                         *(msg + 16 * 2 + 9),
+                                         *(msg + 16 * 3 + 9),
+                                         *(msg + 16 * 4 + 9),
+                                         *(msg + 16 * 5 + 9),
+                                         *(msg + 16 * 6 + 9),
+                                         *(msg + 16 * 7 + 9),
+                                         *(msg + 16 * 8 + 9),
+                                         *(msg + 16 * 9 + 9),
+                                         *(msg + 16 * 10 + 9),
+                                         *(msg + 16 * 11 + 9),
+                                         *(msg + 16 * 12 + 9),
+                                         *(msg + 16 * 13 + 9),
+                                         *(msg + 16 * 14 + 9),
+                                         *(msg + 16 * 15 + 9));
 #endif
 
     blake3::v2::g(state, 0, 5, 10, 15, mx, my);
@@ -583,67 +593,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 10), *(msg + 16 * 1 + 10));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 11), *(msg + 16 * 1 + 11));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 10), *(msg + 16 * 1 + 10));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 11), *(msg + 16 * 1 + 11));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 10),
-                                 *(msg + 16 * 1 + 10),
-                                 *(msg + 16 * 2 + 10),
-                                 *(msg + 16 * 3 + 10));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 11),
-                                 *(msg + 16 * 1 + 11),
-                                 *(msg + 16 * 2 + 11),
-                                 *(msg + 16 * 3 + 11));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 10),
+                                       *(msg + 16 * 1 + 10),
+                                       *(msg + 16 * 2 + 10),
+                                       *(msg + 16 * 3 + 10));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 11),
+                                       *(msg + 16 * 1 + 11),
+                                       *(msg + 16 * 2 + 11),
+                                       *(msg + 16 * 3 + 11));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 10),
-                                 *(msg + 16 * 1 + 10),
-                                 *(msg + 16 * 2 + 10),
-                                 *(msg + 16 * 3 + 10),
-                                 *(msg + 16 * 4 + 10),
-                                 *(msg + 16 * 5 + 10),
-                                 *(msg + 16 * 6 + 10),
-                                 *(msg + 16 * 7 + 10));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 11),
-                                 *(msg + 16 * 1 + 11),
-                                 *(msg + 16 * 2 + 11),
-                                 *(msg + 16 * 3 + 11),
-                                 *(msg + 16 * 4 + 11),
-                                 *(msg + 16 * 5 + 11),
-                                 *(msg + 16 * 6 + 11),
-                                 *(msg + 16 * 7 + 11));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 10),
+                                       *(msg + 16 * 1 + 10),
+                                       *(msg + 16 * 2 + 10),
+                                       *(msg + 16 * 3 + 10),
+                                       *(msg + 16 * 4 + 10),
+                                       *(msg + 16 * 5 + 10),
+                                       *(msg + 16 * 6 + 10),
+                                       *(msg + 16 * 7 + 10));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 11),
+                                       *(msg + 16 * 1 + 11),
+                                       *(msg + 16 * 2 + 11),
+                                       *(msg + 16 * 3 + 11),
+                                       *(msg + 16 * 4 + 11),
+                                       *(msg + 16 * 5 + 11),
+                                       *(msg + 16 * 6 + 11),
+                                       *(msg + 16 * 7 + 11));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 10),
-                                   *(msg + 16 * 1 + 10),
-                                   *(msg + 16 * 2 + 10),
-                                   *(msg + 16 * 3 + 10),
-                                   *(msg + 16 * 4 + 10),
-                                   *(msg + 16 * 5 + 10),
-                                   *(msg + 16 * 6 + 10),
-                                   *(msg + 16 * 7 + 10),
-                                   *(msg + 16 * 8 + 10),
-                                   *(msg + 16 * 9 + 10),
-                                   *(msg + 16 * 10 + 10),
-                                   *(msg + 16 * 11 + 10),
-                                   *(msg + 16 * 12 + 10),
-                                   *(msg + 16 * 13 + 10),
-                                   *(msg + 16 * 14 + 10),
-                                   *(msg + 16 * 15 + 10));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 11),
-                                   *(msg + 16 * 1 + 11),
-                                   *(msg + 16 * 2 + 11),
-                                   *(msg + 16 * 3 + 11),
-                                   *(msg + 16 * 4 + 11),
-                                   *(msg + 16 * 5 + 11),
-                                   *(msg + 16 * 6 + 11),
-                                   *(msg + 16 * 7 + 11),
-                                   *(msg + 16 * 8 + 11),
-                                   *(msg + 16 * 9 + 11),
-                                   *(msg + 16 * 10 + 11),
-                                   *(msg + 16 * 11 + 11),
-                                   *(msg + 16 * 12 + 11),
-                                   *(msg + 16 * 13 + 11),
-                                   *(msg + 16 * 14 + 11),
-                                   *(msg + 16 * 15 + 11));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 10),
+                                         *(msg + 16 * 1 + 10),
+                                         *(msg + 16 * 2 + 10),
+                                         *(msg + 16 * 3 + 10),
+                                         *(msg + 16 * 4 + 10),
+                                         *(msg + 16 * 5 + 10),
+                                         *(msg + 16 * 6 + 10),
+                                         *(msg + 16 * 7 + 10),
+                                         *(msg + 16 * 8 + 10),
+                                         *(msg + 16 * 9 + 10),
+                                         *(msg + 16 * 10 + 10),
+                                         *(msg + 16 * 11 + 10),
+                                         *(msg + 16 * 12 + 10),
+                                         *(msg + 16 * 13 + 10),
+                                         *(msg + 16 * 14 + 10),
+                                         *(msg + 16 * 15 + 10));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 11),
+                                         *(msg + 16 * 1 + 11),
+                                         *(msg + 16 * 2 + 11),
+                                         *(msg + 16 * 3 + 11),
+                                         *(msg + 16 * 4 + 11),
+                                         *(msg + 16 * 5 + 11),
+                                         *(msg + 16 * 6 + 11),
+                                         *(msg + 16 * 7 + 11),
+                                         *(msg + 16 * 8 + 11),
+                                         *(msg + 16 * 9 + 11),
+                                         *(msg + 16 * 10 + 11),
+                                         *(msg + 16 * 11 + 11),
+                                         *(msg + 16 * 12 + 11),
+                                         *(msg + 16 * 13 + 11),
+                                         *(msg + 16 * 14 + 11),
+                                         *(msg + 16 * 15 + 11));
 #endif
 
     blake3::v2::g(state, 1, 6, 11, 12, mx, my);
@@ -651,67 +663,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 12), *(msg + 16 * 1 + 12));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 13), *(msg + 16 * 1 + 13));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 12), *(msg + 16 * 1 + 12));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 13), *(msg + 16 * 1 + 13));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 12),
-                                 *(msg + 16 * 1 + 12),
-                                 *(msg + 16 * 2 + 12),
-                                 *(msg + 16 * 3 + 12));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 13),
-                                 *(msg + 16 * 1 + 13),
-                                 *(msg + 16 * 2 + 13),
-                                 *(msg + 16 * 3 + 13));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 12),
+                                       *(msg + 16 * 1 + 12),
+                                       *(msg + 16 * 2 + 12),
+                                       *(msg + 16 * 3 + 12));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 13),
+                                       *(msg + 16 * 1 + 13),
+                                       *(msg + 16 * 2 + 13),
+                                       *(msg + 16 * 3 + 13));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 12),
-                                 *(msg + 16 * 1 + 12),
-                                 *(msg + 16 * 2 + 12),
-                                 *(msg + 16 * 3 + 12),
-                                 *(msg + 16 * 4 + 12),
-                                 *(msg + 16 * 5 + 12),
-                                 *(msg + 16 * 6 + 12),
-                                 *(msg + 16 * 7 + 12));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 13),
-                                 *(msg + 16 * 1 + 13),
-                                 *(msg + 16 * 2 + 13),
-                                 *(msg + 16 * 3 + 13),
-                                 *(msg + 16 * 4 + 13),
-                                 *(msg + 16 * 5 + 13),
-                                 *(msg + 16 * 6 + 13),
-                                 *(msg + 16 * 7 + 13));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 12),
+                                       *(msg + 16 * 1 + 12),
+                                       *(msg + 16 * 2 + 12),
+                                       *(msg + 16 * 3 + 12),
+                                       *(msg + 16 * 4 + 12),
+                                       *(msg + 16 * 5 + 12),
+                                       *(msg + 16 * 6 + 12),
+                                       *(msg + 16 * 7 + 12));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 13),
+                                       *(msg + 16 * 1 + 13),
+                                       *(msg + 16 * 2 + 13),
+                                       *(msg + 16 * 3 + 13),
+                                       *(msg + 16 * 4 + 13),
+                                       *(msg + 16 * 5 + 13),
+                                       *(msg + 16 * 6 + 13),
+                                       *(msg + 16 * 7 + 13));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 12),
-                                   *(msg + 16 * 1 + 12),
-                                   *(msg + 16 * 2 + 12),
-                                   *(msg + 16 * 3 + 12),
-                                   *(msg + 16 * 4 + 12),
-                                   *(msg + 16 * 5 + 12),
-                                   *(msg + 16 * 6 + 12),
-                                   *(msg + 16 * 7 + 12),
-                                   *(msg + 16 * 8 + 12),
-                                   *(msg + 16 * 9 + 12),
-                                   *(msg + 16 * 10 + 12),
-                                   *(msg + 16 * 11 + 12),
-                                   *(msg + 16 * 12 + 12),
-                                   *(msg + 16 * 13 + 12),
-                                   *(msg + 16 * 14 + 12),
-                                   *(msg + 16 * 15 + 12));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 13),
-                                   *(msg + 16 * 1 + 13),
-                                   *(msg + 16 * 2 + 13),
-                                   *(msg + 16 * 3 + 13),
-                                   *(msg + 16 * 4 + 13),
-                                   *(msg + 16 * 5 + 13),
-                                   *(msg + 16 * 6 + 13),
-                                   *(msg + 16 * 7 + 13),
-                                   *(msg + 16 * 8 + 13),
-                                   *(msg + 16 * 9 + 13),
-                                   *(msg + 16 * 10 + 13),
-                                   *(msg + 16 * 11 + 13),
-                                   *(msg + 16 * 12 + 13),
-                                   *(msg + 16 * 13 + 13),
-                                   *(msg + 16 * 14 + 13),
-                                   *(msg + 16 * 15 + 13));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 12),
+                                         *(msg + 16 * 1 + 12),
+                                         *(msg + 16 * 2 + 12),
+                                         *(msg + 16 * 3 + 12),
+                                         *(msg + 16 * 4 + 12),
+                                         *(msg + 16 * 5 + 12),
+                                         *(msg + 16 * 6 + 12),
+                                         *(msg + 16 * 7 + 12),
+                                         *(msg + 16 * 8 + 12),
+                                         *(msg + 16 * 9 + 12),
+                                         *(msg + 16 * 10 + 12),
+                                         *(msg + 16 * 11 + 12),
+                                         *(msg + 16 * 12 + 12),
+                                         *(msg + 16 * 13 + 12),
+                                         *(msg + 16 * 14 + 12),
+                                         *(msg + 16 * 15 + 12));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 13),
+                                         *(msg + 16 * 1 + 13),
+                                         *(msg + 16 * 2 + 13),
+                                         *(msg + 16 * 3 + 13),
+                                         *(msg + 16 * 4 + 13),
+                                         *(msg + 16 * 5 + 13),
+                                         *(msg + 16 * 6 + 13),
+                                         *(msg + 16 * 7 + 13),
+                                         *(msg + 16 * 8 + 13),
+                                         *(msg + 16 * 9 + 13),
+                                         *(msg + 16 * 10 + 13),
+                                         *(msg + 16 * 11 + 13),
+                                         *(msg + 16 * 12 + 13),
+                                         *(msg + 16 * 13 + 13),
+                                         *(msg + 16 * 14 + 13),
+                                         *(msg + 16 * 15 + 13));
 #endif
 
     blake3::v2::g(state, 2, 7, 8, 13, mx, my);
@@ -719,67 +733,69 @@ blake3::v2::round(
 
   {
 #if BLAKE3_SIMD_LANES == 2
-    sycl::uint2 mx = sycl::uint2(*(msg + 16 * 0 + 14), *(msg + 16 * 1 + 14));
-    sycl::uint2 my = sycl::uint2(*(msg + 16 * 0 + 15), *(msg + 16 * 1 + 15));
+    const sycl::uint2 mx =
+      sycl::uint2(*(msg + 16 * 0 + 14), *(msg + 16 * 1 + 14));
+    const sycl::uint2 my =
+      sycl::uint2(*(msg + 16 * 0 + 15), *(msg + 16 * 1 + 15));
 #elif BLAKE3_SIMD_LANES == 4
-    sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 14),
-                                 *(msg + 16 * 1 + 14),
-                                 *(msg + 16 * 2 + 14),
-                                 *(msg + 16 * 3 + 14));
-    sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 15),
-                                 *(msg + 16 * 1 + 15),
-                                 *(msg + 16 * 2 + 15),
-                                 *(msg + 16 * 3 + 15));
+    const sycl::uint4 mx = sycl::uint4(*(msg + 16 * 0 + 14),
+                                       *(msg + 16 * 1 + 14),
+                                       *(msg + 16 * 2 + 14),
+                                       *(msg + 16 * 3 + 14));
+    const sycl::uint4 my = sycl::uint4(*(msg + 16 * 0 + 15),
+                                       *(msg + 16 * 1 + 15),
+                                       *(msg + 16 * 2 + 15),
+                                       *(msg + 16 * 3 + 15));
 #elif BLAKE3_SIMD_LANES == 8
-    sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 14),
-                                 *(msg + 16 * 1 + 14),
-                                 *(msg + 16 * 2 + 14),
-                                 *(msg + 16 * 3 + 14),
-                                 *(msg + 16 * 4 + 14),
-                                 *(msg + 16 * 5 + 14),
-                                 *(msg + 16 * 6 + 14),
-                                 *(msg + 16 * 7 + 14));
-    sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 15),
-                                 *(msg + 16 * 1 + 15),
-                                 *(msg + 16 * 2 + 15),
-                                 *(msg + 16 * 3 + 15),
-                                 *(msg + 16 * 4 + 15),
-                                 *(msg + 16 * 5 + 15),
-                                 *(msg + 16 * 6 + 15),
-                                 *(msg + 16 * 7 + 15));
+    const sycl::uint8 mx = sycl::uint8(*(msg + 16 * 0 + 14),
+                                       *(msg + 16 * 1 + 14),
+                                       *(msg + 16 * 2 + 14),
+                                       *(msg + 16 * 3 + 14),
+                                       *(msg + 16 * 4 + 14),
+                                       *(msg + 16 * 5 + 14),
+                                       *(msg + 16 * 6 + 14),
+                                       *(msg + 16 * 7 + 14));
+    const sycl::uint8 my = sycl::uint8(*(msg + 16 * 0 + 15),
+                                       *(msg + 16 * 1 + 15),
+                                       *(msg + 16 * 2 + 15),
+                                       *(msg + 16 * 3 + 15),
+                                       *(msg + 16 * 4 + 15),
+                                       *(msg + 16 * 5 + 15),
+                                       *(msg + 16 * 6 + 15),
+                                       *(msg + 16 * 7 + 15));
 #elif BLAKE3_SIMD_LANES == 16
-    sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 14),
-                                   *(msg + 16 * 1 + 14),
-                                   *(msg + 16 * 2 + 14),
-                                   *(msg + 16 * 3 + 14),
-                                   *(msg + 16 * 4 + 14),
-                                   *(msg + 16 * 5 + 14),
-                                   *(msg + 16 * 6 + 14),
-                                   *(msg + 16 * 7 + 14),
-                                   *(msg + 16 * 8 + 14),
-                                   *(msg + 16 * 9 + 14),
-                                   *(msg + 16 * 10 + 14),
-                                   *(msg + 16 * 11 + 14),
-                                   *(msg + 16 * 12 + 14),
-                                   *(msg + 16 * 13 + 14),
-                                   *(msg + 16 * 14 + 14),
-                                   *(msg + 16 * 15 + 14));
-    sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 15),
-                                   *(msg + 16 * 1 + 15),
-                                   *(msg + 16 * 2 + 15),
-                                   *(msg + 16 * 3 + 15),
-                                   *(msg + 16 * 4 + 15),
-                                   *(msg + 16 * 5 + 15),
-                                   *(msg + 16 * 6 + 15),
-                                   *(msg + 16 * 7 + 15),
-                                   *(msg + 16 * 8 + 15),
-                                   *(msg + 16 * 9 + 15),
-                                   *(msg + 16 * 10 + 15),
-                                   *(msg + 16 * 11 + 15),
-                                   *(msg + 16 * 12 + 15),
-                                   *(msg + 16 * 13 + 15),
-                                   *(msg + 16 * 14 + 15),
-                                   *(msg + 16 * 15 + 15));
+    const sycl::uint16 mx = sycl::uint16(*(msg + 16 * 0 + 14),
+                                         *(msg + 16 * 1 + 14),
+                                         *(msg + 16 * 2 + 14),
+                                         *(msg + 16 * 3 + 14),
+                                         *(msg + 16 * 4 + 14),
+                                         *(msg + 16 * 5 + 14),
+                                         *(msg + 16 * 6 + 14),
+                                         *(msg + 16 * 7 + 14),
+                                         *(msg + 16 * 8 + 14),
+                                         *(msg + 16 * 9 + 14),
+                                         *(msg + 16 * 10 + 14),
+                                         *(msg + 16 * 11 + 14),
+                                         *(msg + 16 * 12 + 14),
+                                         *(msg + 16 * 13 + 14),
+                                         *(msg + 16 * 14 + 14),
+                                         *(msg + 16 * 15 + 14));
+    const sycl::uint16 my = sycl::uint16(*(msg + 16 * 0 + 15),
+                                         *(msg + 16 * 1 + 15),
+                                         *(msg + 16 * 2 + 15),
+                                         *(msg + 16 * 3 + 15),
+                                         *(msg + 16 * 4 + 15),
+                                         *(msg + 16 * 5 + 15),
+                                         *(msg + 16 * 6 + 15),
+                                         *(msg + 16 * 7 + 15),
+                                         *(msg + 16 * 8 + 15),
+                                         *(msg + 16 * 9 + 15),
+                                         *(msg + 16 * 10 + 15),
+                                         *(msg + 16 * 11 + 15),
+                                         *(msg + 16 * 12 + 15),
+                                         *(msg + 16 * 13 + 15),
+                                         *(msg + 16 * 14 + 15),
+                                         *(msg + 16 * 15 + 15));
 #endif
 
     blake3::v2::g(state, 3, 4, 9, 14, mx, my);
@@ -1136,7 +1152,7 @@ blake3::v2::compress(const sycl::uint* in_cv,
     // round i = {0, 1, ... 6}
     blake3::v2::round(state, block_words);
 
-    if (i < blake3::ROUNDS - 1) {
+    if (i < blake3::ROUNDS - 1) { // no need to permute after last round !
       for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
         blake3::permute(block_words + 16 * j);
       }
@@ -1145,6 +1161,8 @@ blake3::v2::compress(const sycl::uint* in_cv,
 
   // prepare output chaining values for 2/ 4/ 8/ 16 chunks
   // being compressed in parallel
+
+#pragma unroll 8 // this loop can be fully parallelized !
   for (size_t i = 0; i < 8; i++) {
     state[i] ^= state[i + 8];
   }
@@ -1152,184 +1170,184 @@ blake3::v2::compress(const sycl::uint* in_cv,
 #if BLAKE3_SIMD_LANES == 2
 // writing 32 -bytes output chaining value
 // for first chunk in this batch
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].x();
   }
 
 // output chaining value of last chunk in cluster
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].y();
   }
 #elif BLAKE3_SIMD_LANES == 4
 // writing 32 -bytes output chaining value
 // for first chunk in this batch
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].x();
   }
 
 // output chaining value of second chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].y();
   }
 
 // output chaining value of third chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].z();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].w();
   }
 #elif BLAKE3_SIMD_LANES == 8
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].s0();
   }
 
 // output chaining value of second chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].s1();
   }
 
   // output chaining value of third chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].s2();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].s3();
   }
 
   // output chaining value of fifth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 4 + i) = state[i].s4();
   }
 
   // output chaining value of sixth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 5 + i) = state[i].s5();
   }
 
   // output chaining value of seventh chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 6 + i) = state[i].s6();
   }
 
   // output chaining value of eighth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 7 + i) = state[i].s7();
   }
 #elif BLAKE3_SIMD_LANES == 16
   // writing 32 -bytes output chaining value
   // for first chunk in this batch
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 0 + i) = state[i].s0();
   }
 
   // output chaining value of second chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 1 + i) = state[i].s1();
   }
 
   // output chaining value of third chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 2 + i) = state[i].s2();
   }
 
   // output chaining value of fourth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 3 + i) = state[i].s3();
   }
 
   // output chaining value of fifth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 4 + i) = state[i].s4();
   }
 
   // output chaining value of sixth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 5 + i) = state[i].s5();
   }
 
   // output chaining value of seventh chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 6 + i) = state[i].s6();
   }
 
   // output chaining value of eighth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 7 + i) = state[i].s7();
   }
 
   // output chaining value of ninth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 8 + i) = state[i].s8();
   }
 
   // output chaining value of tenth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 9 + i) = state[i].s9();
   }
 
   // output chaining value of eleventh chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 10 + i) = state[i].sA();
   }
 
   // output chaining value of twelveth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 11 + i) = state[i].sB();
   }
 
   // output chaining value of thirteenth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 12 + i) = state[i].sC();
   }
 
   // output chaining value of fourteenth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 13 + i) = state[i].sD();
   }
 
   // output chaining value of fifteenth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 14 + i) = state[i].sE();
   }
 
 // output chaining value of sixteenth chunk
-#pragma unroll
+#pragma unroll 8
   for (size_t i = 0; i < 8; i++) {
     *(out_cv + 8 * 15 + i) = state[i].sF();
   }
@@ -1344,27 +1362,28 @@ blake3::v2::chunkify(const sycl::uint* key_words,
                      sycl::uint* const out_cv)
 {
 #if BLAKE3_SIMD_LANES == 2
-  sycl::uint in_cv[16] = { 0 };
-  sycl::uint priv_out_cv[16] = { 0 };
-  sycl::uint block_words[32] = { 0 };
+  sycl::uint in_cv[16];
+  sycl::uint priv_out_cv[16];
+  sycl::uint block_words[32];
 #elif BLAKE3_SIMD_LANES == 4
-  sycl::uint in_cv[32] = { 0 };
-  sycl::uint priv_out_cv[32] = { 0 };
-  sycl::uint block_words[64] = { 0 };
+  sycl::uint in_cv[32];
+  sycl::uint priv_out_cv[32];
+  sycl::uint block_words[64];
 #elif BLAKE3_SIMD_LANES == 8
-  sycl::uint in_cv[64] = { 0 };
-  sycl::uint priv_out_cv[64] = { 0 };
-  sycl::uint block_words[128] = { 0 };
+  sycl::uint in_cv[64];
+  sycl::uint priv_out_cv[64];
+  sycl::uint block_words[128];
 #elif BLAKE3_SIMD_LANES == 16
-  sycl::uint in_cv[128] = { 0 };
-  sycl::uint priv_out_cv[128] = { 0 };
-  sycl::uint block_words[256] = { 0 };
+  sycl::uint in_cv[128];
+  sycl::uint priv_out_cv[128];
+  sycl::uint block_words[256];
 #endif
 
+#pragma unroll // letting compiler decide, if something can be done about it
   for (size_t i = 0; i < 8; i++) {
     sycl::uint tmp = *(key_words + i);
 
-#pragma unroll
+#pragma unroll BLAKE3_SIMD_LANES // can be fully parallelized
     for (size_t j = 0; j < BLAKE3_SIMD_LANES; j++) {
       in_cv[i + 8 * j] = tmp;
     }
@@ -1408,7 +1427,7 @@ blake3::v2::chunkify(const sycl::uint* key_words,
     }
 
     if (i < 15) {
-#pragma unroll
+#pragma unroll 8 // attempt partial unrolling !
       for (size_t j = 0; j < 8 * BLAKE3_SIMD_LANES; j++) {
         in_cv[j] = priv_out_cv[j];
       }
@@ -1625,10 +1644,14 @@ blake3::permute(sycl::uint* const msg)
 {
   sycl::uint permuted[16] = { 0 };
 
+  // following two loops can be parallelized by fully unrolling !
+
+#pragma unroll 16 // fully unroll this loop
   for (size_t i = 0; i < 16; i++) {
     permuted[i] = *(msg + blake3::MSG_PERMUTATION[i]);
   }
 
+#pragma unroll 16 // fully unroll this loop
   for (size_t i = 0; i < 16; i++) {
     *(msg + i) = permuted[i];
   }
