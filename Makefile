@@ -50,6 +50,9 @@ aot_cpu:
 	./bench/a.out
 
 aot_gpu:
+	# you may want to replace `device` identifier with `0x3e96` if you're targeting *Intel(R) UHD Graphics P630*
+	#
+	# otherwise, let it be what it's if you're targeting *Intel(R) Iris(R) Xe MAX Graphics*
 	$(CXX) $(CXXFLAGS) $(SYCLFLAGS) $(OPTFLAGS) $(IFLAGS) $(BLAKE3_SIMD_LANES_FLAGS) -fsycl-targets=spir64_gen -Xs "-device 0x4905" bench/main.cpp -o bench/a.out
 	./bench/a.out
 
