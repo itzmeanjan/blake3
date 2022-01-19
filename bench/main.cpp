@@ -8,12 +8,13 @@ enum BLAKE3_VARIANT
   V2
 };
 
-double
+void
 avg_kernel_exec_tm(sycl::queue& q,
                    size_t chunk_count,
                    size_t wg_size,
                    size_t itr_cnt,
-                   BLAKE3_VARIANT variant);
+                   BLAKE3_VARIANT variant,
+                   double* const ts);
 
 std::string
 to_readable_timespan(double ts);
@@ -37,59 +38,91 @@ main(int argc, char** argv)
   const size_t wg_size = 1 << 5;
   const size_t itr_cnt = 1 << 3;
 
+  double* ts = static_cast<double*>(std::malloc(sizeof(double) * 3));
+
   std::cout << "Benchmarking BLAKE3 SYCL implementation (v1)" << std::endl
             << std::endl;
   std::cout << std::setw(24) << std::right << "input size"
             << "\t\t" << std::setw(16) << std::right << "execution time"
+            << "\t\t" << std::setw(16) << std::right << "host-to-device tx time"
+            << "\t\t" << std::setw(16) << std::right << "device-to-host tx time"
             << std::endl;
 
   for (size_t i = 1 << 10; i <= 1 << 20; i <<= 1) {
-    std::string ts = to_readable_timespan(
-      avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V1));
+    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V1, ts);
 
     std::cout << std::setw(20) << std::right << ((i * blake3::CHUNK_LEN) >> 20)
               << " MB"
-              << "\t\t" << std::setw(22) << std::right << ts << std::endl;
+              << "\t\t" << std::setw(22) << std::right
+              << to_readable_timespan(*(ts + 1)) << "\t\t" << std::setw(22)
+              << std::right << to_readable_timespan(*(ts + 0)) << "\t\t"
+              << std::setw(22) << std::right << to_readable_timespan(*(ts + 2))
+              << std::endl;
   }
 
   std::cout << "\nBenchmarking BLAKE3 SYCL implementation (v2)" << std::endl
             << std::endl;
   std::cout << std::setw(24) << std::right << "input size"
             << "\t\t" << std::setw(16) << std::right << "execution time"
+            << "\t\t" << std::setw(16) << std::right << "host-to-device tx time"
+            << "\t\t" << std::setw(16) << std::right << "device-to-host tx time"
             << std::endl;
 
   for (size_t i = 1 << 10; i <= 1 << 20; i <<= 1) {
-    std::string ts = to_readable_timespan(
-      avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V2));
+    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V2, ts);
 
     std::cout << std::setw(20) << std::right << ((i * blake3::CHUNK_LEN) >> 20)
               << " MB"
-              << "\t\t" << std::setw(22) << std::right << ts << std::endl;
+              << "\t\t" << std::setw(22) << std::right
+              << to_readable_timespan(*(ts + 1)) << "\t\t" << std::setw(22)
+              << std::right << to_readable_timespan(*(ts + 0)) << "\t\t"
+              << std::setw(22) << std::right << to_readable_timespan(*(ts + 2))
+              << std::endl;
   }
+
+  std::free(ts);
 
   return 0;
 }
 
-double
+void
 avg_kernel_exec_tm(sycl::queue& q,
                    size_t chunk_count,
                    size_t wg_size,
                    size_t itr_cnt,
-                   BLAKE3_VARIANT variant)
+                   BLAKE3_VARIANT variant,
+                   double* const ts)
 {
-  sycl::cl_ulong ts = 0;
+  // allocate memory on host
+  sycl::cl_ulong* ts_sum =
+    static_cast<sycl::cl_ulong*>(std::malloc(sizeof(sycl::cl_ulong) * 3));
+  sycl::cl_ulong* ts_rnd =
+    static_cast<sycl::cl_ulong*>(std::malloc(sizeof(sycl::cl_ulong) * 3));
+
+  // so that average execution/ data transfer time can be safely computed !
+  std::memset(ts_sum, 0, sizeof(sycl::cl_ulong) * 3);
 
   for (size_t i = 0; i < itr_cnt; i++) {
     if (variant == BLAKE3_VARIANT::V1) {
-      ts += benchmark_blake3_v1(q, chunk_count, wg_size);
+      benchmark_blake3_v1(q, chunk_count, wg_size, ts_rnd);
     } else if (variant == BLAKE3_VARIANT::V2) {
-      ts += benchmark_blake3_v2(q, chunk_count, wg_size);
+      benchmark_blake3_v2(q, chunk_count, wg_size, ts_rnd);
     } else {
       throw "can't benchmark unsupported BLAKE3 variant";
     }
+
+    for (size_t j = 0; j < 3; j++) {
+      *(ts_sum + j) += *(ts_rnd + j);
+    }
   }
 
-  return (double)ts / (double)itr_cnt;
+  for (size_t i = 0; i < 3; i++) {
+    *(ts + i) = (double)*(ts_sum + i) / (double)itr_cnt;
+  }
+
+  // deallocate resources
+  std::free(ts_sum);
+  std::free(ts_rnd);
 }
 
 std::string

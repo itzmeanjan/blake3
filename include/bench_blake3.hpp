@@ -2,8 +2,11 @@
 #include "blake3.hpp"
 #include <random>
 
-sycl::cl_ulong
-benchmark_blake3_v1(sycl::queue& q, size_t chunk_count, size_t wg_size)
+void
+benchmark_blake3_v1(sycl::queue& q,
+                    size_t chunk_count,
+                    size_t wg_size,
+                    sycl::cl_ulong* const ts)
 {
   // current implementation of blake3 only works
   // with power of 2 -number of chunks
@@ -27,22 +30,36 @@ benchmark_blake3_v1(sycl::queue& q, size_t chunk_count, size_t wg_size)
     memset(i_h, dis(gen), i_size); // prepare (random) input
   }
 
-  sycl::cl_ulong ts = 0; // timing info, ensure queue has profiling enabled
+  sycl::cl_ulong ts_0, ts_1, ts_2;
 
-  q.memcpy(i_d, i_h, i_size).wait();
-  blake3::v1::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts);
-  q.memcpy(o_h, o_d, o_size).wait();
+  // host to device data transfer
+  sycl::event evt_0 = q.memcpy(i_d, i_h, i_size);
+  evt_0.wait();
+  ts_0 = time_event(evt_0);
+
+  // compute hash on device
+  blake3::v1::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts_1);
+
+  // device to host data transfer i.e. get 32 -bytes digest back
+  sycl::event evt_1 = q.memcpy(o_h, o_d, o_size);
+  evt_1.wait();
+  ts_2 = time_event(evt_1);
 
   sycl::free(i_h, q);
   sycl::free(i_d, q);
   sycl::free(o_h, q);
   sycl::free(o_d, q);
 
-  return ts;
+  *(ts + 0) = ts_0; // host to device data transfer cost
+  *(ts + 1) = ts_1; // kernel execution cost
+  *(ts + 2) = ts_2; // device to host data transfer cost
 }
 
-sycl::cl_ulong
-benchmark_blake3_v2(sycl::queue& q, size_t chunk_count, size_t wg_size)
+void
+benchmark_blake3_v2(sycl::queue& q,
+                    size_t chunk_count,
+                    size_t wg_size,
+                    sycl::cl_ulong* const ts)
 {
   // current implementation of blake3 only works
   // with power of 2 -number of chunks
@@ -66,16 +83,27 @@ benchmark_blake3_v2(sycl::queue& q, size_t chunk_count, size_t wg_size)
     memset(i_h, dis(gen), i_size); // prepare (random) input
   }
 
-  sycl::cl_ulong ts = 0; // timing info, ensure queue has profiling enabled
+  sycl::cl_ulong ts_0, ts_1, ts_2;
 
-  q.memcpy(i_d, i_h, i_size).wait();
-  blake3::v2::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts);
-  q.memcpy(o_h, o_d, o_size).wait();
+  // host to device data transfer
+  sycl::event evt_0 = q.memcpy(i_d, i_h, i_size);
+  evt_0.wait();
+  ts_0 = time_event(evt_0);
+
+  // compute hash on device
+  blake3::v2::hash(q, i_d, i_size, chunk_count, wg_size, o_d, &ts_1);
+
+  // device to host data transfer i.e. get 32 -bytes digest back
+  sycl::event evt_1 = q.memcpy(o_h, o_d, o_size);
+  evt_1.wait();
+  ts_2 = time_event(evt_1);
 
   sycl::free(i_h, q);
   sycl::free(i_d, q);
   sycl::free(o_h, q);
   sycl::free(o_d, q);
 
-  return ts;
+  *(ts + 0) = ts_0; // host to device data transfer cost
+  *(ts + 1) = ts_1; // kernel execution cost
+  *(ts + 2) = ts_2; // device to host data transfer cost
 }
