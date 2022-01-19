@@ -1556,32 +1556,15 @@ blake3::v2::hash(sycl::queue& q,
   if (ts != nullptr) {
     sycl::cl_ulong ts_ = 0;
 
-    {
-      const sycl::cl_ulong start =
-        evt_0.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
+    ts_ += time_event(evt_0);
 
-      ts_ += (end - start);
-    }
-
+    // this loop can be unrolled, if we explicitly know input chunk
+    // count, but for now I'm doing nothing !
     for (auto evt : evts) {
-      const sycl::cl_ulong start =
-        evt.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-      ts_ += (end - start);
+      ts_ += time_event(evt);
     }
 
-    {
-      const sycl::cl_ulong start =
-        evt_1.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-      ts_ += (end - start);
-    }
+    ts_ += time_event(evt_1);
 
     *ts = ts_;
   }
@@ -1590,19 +1573,21 @@ blake3::v2::hash(sycl::queue& q,
 inline void
 blake3::v1::round(sycl::uint4* const state, const sycl::uint* msg)
 {
-  sycl::uint4 mx = sycl::uint4(*(msg + 0), *(msg + 2), *(msg + 4), *(msg + 6));
-  sycl::uint4 my = sycl::uint4(*(msg + 1), *(msg + 3), *(msg + 5), *(msg + 7));
-  sycl::uint4 mz =
+  const sycl::uint4 mx =
+    sycl::uint4(*(msg + 0), *(msg + 2), *(msg + 4), *(msg + 6));
+  const sycl::uint4 my =
+    sycl::uint4(*(msg + 1), *(msg + 3), *(msg + 5), *(msg + 7));
+  const sycl::uint4 mz =
     sycl::uint4(*(msg + 8), *(msg + 10), *(msg + 12), *(msg + 14));
-  sycl::uint4 mw =
+  const sycl::uint4 mw =
     sycl::uint4(*(msg + 9), *(msg + 11), *(msg + 13), *(msg + 15));
 
-  sycl::uint4 rrot_16 = sycl::uint4(16);
-  sycl::uint4 rrot_12 = sycl::uint4(20);
-  sycl::uint4 rrot_8 = sycl::uint4(24);
-  sycl::uint4 rrot_7 = sycl::uint4(25);
+  const sycl::uint4 rrot_16 = sycl::uint4(16);
+  const sycl::uint4 rrot_12 = sycl::uint4(20);
+  const sycl::uint4 rrot_8 = sycl::uint4(24);
+  const sycl::uint4 rrot_7 = sycl::uint4(25);
 
-  // columnar state processing
+  // column-wise mixing
   *(state + 0) = *(state + 0) + *(state + 1) + mx;
   *(state + 3) = sycl::rotate(*(state + 3) ^ *(state + 0), rrot_16);
 
@@ -1620,7 +1605,7 @@ blake3::v1::round(sycl::uint4* const state, const sycl::uint* msg)
   *(state + 2) = (*(state + 2)).zwxy();
   *(state + 3) = (*(state + 3)).wxyz();
 
-  // diagonal state processing
+  // diagonal mixing
   *(state + 0) = *(state + 0) + *(state + 1) + mz;
   *(state + 3) = sycl::rotate(*(state + 3) ^ *(state + 0), rrot_16);
 
@@ -1642,7 +1627,7 @@ blake3::v1::round(sycl::uint4* const state, const sycl::uint* msg)
 inline void
 blake3::permute(sycl::uint* const msg)
 {
-  sycl::uint permuted[16] = { 0 };
+  sycl::uint permuted[16];
 
   // following two loops can be parallelized by fully unrolling !
 
@@ -1665,18 +1650,15 @@ blake3::v1::compress(const sycl::uint* in_cv,
                      sycl::uint flags,
                      sycl::uint* const out_cv)
 {
-  sycl::uint4 cv0 =
-    sycl::uint4(*(in_cv + 0), *(in_cv + 1), *(in_cv + 2), *(in_cv + 3));
-  sycl::uint4 cv1 =
-    sycl::uint4(*(in_cv + 4), *(in_cv + 5), *(in_cv + 6), *(in_cv + 7));
-
-  sycl::uint4 state[4] = { cv0,
-                           cv1,
-                           sycl::uint4(IV[0], IV[1], IV[2], IV[3]),
-                           sycl::uint4(counter & 0xffffffff,
-                                       static_cast<sycl::uint>(counter >> 32),
-                                       block_len,
-                                       flags) };
+  sycl::uint4 state[4] = {
+    sycl::uint4(*(in_cv + 0), *(in_cv + 1), *(in_cv + 2), *(in_cv + 3)),
+    sycl::uint4(*(in_cv + 4), *(in_cv + 5), *(in_cv + 6), *(in_cv + 7)),
+    sycl::uint4(IV[0], IV[1], IV[2], IV[3]),
+    sycl::uint4(counter & 0xffffffff,
+                static_cast<sycl::uint>(counter >> 32),
+                block_len,
+                flags)
+  };
 
   // round 1
   blake3::v1::round(state, block_words);
@@ -1704,6 +1686,7 @@ blake3::v1::compress(const sycl::uint* in_cv,
 
   // round 7
   blake3::v1::round(state, block_words);
+  // no need to permute message words anymore !
 
   state[0] ^= state[2];
   state[1] ^= state[3];
@@ -1711,6 +1694,8 @@ blake3::v1::compress(const sycl::uint* in_cv,
   // of this block ( or chunk ), so they can be safely commented out !
   // state[2] ^= cv0;
   // state[3] ^= cv1;
+  // see
+  // https://github.com/BLAKE3-team/BLAKE3/blob/da4c792/reference_impl/reference_impl.rs#L118
 
   // output chaining value of this block to be used as
   // input chaining value for next block in same chunk
@@ -1725,6 +1710,7 @@ inline void
 blake3::words_from_le_bytes(const sycl::uchar* input,
                             sycl::uint* const block_words)
 {
+#pragma unroll 8 // partial unrolling !
   for (size_t i = 0; i < 16; i++) {
     const sycl::uchar* num = (input + i * 4);
     *(block_words + i) = (static_cast<sycl::uint>(*(num + 3)) << 24) |
@@ -1737,6 +1723,7 @@ blake3::words_from_le_bytes(const sycl::uchar* input,
 inline void
 blake3::words_to_le_bytes(const sycl::uint* input, sycl::uchar* const output)
 {
+#pragma unroll 8 // fully parallelize !
   for (size_t i = 0; i < 8; i++) {
     const sycl::uint num = *(input + i);
     sycl::uchar* out_ = output + i * 4;
@@ -1755,11 +1742,11 @@ blake3::v1::chunkify(const sycl::uint* key_words,
                      const sycl::uchar* input,
                      sycl::uint* const out_cv)
 {
-  sycl::uint in_cv[8] = { 0 };
-  sycl::uint priv_out_cv[8] = { 0 };
-  sycl::uint block_words[16] = { 0 };
+  sycl::uint in_cv[8];
+  sycl::uint priv_out_cv[8];
+  sycl::uint block_words[16];
 
-#pragma unroll
+#pragma unroll 8 // attempt to fully parallelize array initialization !
   for (size_t i = 0; i < 8; i++) {
     in_cv[i] = *(key_words + i);
   }
@@ -1794,7 +1781,7 @@ blake3::v1::chunkify(const sycl::uint* key_words,
     }
 
     if (i < 15) {
-#pragma unroll
+#pragma unroll 8 // copying between array can be fully parallelized !
       for (size_t j = 0; j < 8; j++) {
         in_cv[j] = priv_out_cv[j];
       }
@@ -1809,9 +1796,9 @@ blake3::parent_cv(const sycl::uint* left_cv,
                   sycl::uint flags,
                   sycl::uint* const out_cv)
 {
-  sycl::uint block_words[16] = { 0 };
+  sycl::uint block_words[16];
 
-#pragma unroll
+#pragma unroll 8 // preparing input message words can be fully parallelized !
   for (size_t i = 0; i < 8; i++) {
     block_words[i] = *(left_cv + i);
     block_words[i + 8] = *(right_cv + i);
@@ -1889,25 +1876,8 @@ blake3::v1::hash(sycl::queue& q,
     if (ts != nullptr) {
       sycl::cl_ulong ts_ = 0;
 
-      {
-        const sycl::cl_ulong start =
-          evt_0
-            .get_profiling_info<sycl::info::event_profiling::command_start>();
-        const sycl::cl_ulong end =
-          evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-        ts_ += (end - start);
-      }
-
-      {
-        const sycl::cl_ulong start =
-          evt_1
-            .get_profiling_info<sycl::info::event_profiling::command_start>();
-        const sycl::cl_ulong end =
-          evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-        ts_ += (end - start);
-      }
+      ts_ += time_event(evt_0);
+      ts_ += time_event(evt_1);
 
       *ts = ts_;
     }
@@ -1971,32 +1941,13 @@ blake3::v1::hash(sycl::queue& q,
   if (ts != nullptr) {
     sycl::cl_ulong ts_ = 0;
 
-    {
-      const sycl::cl_ulong start =
-        evt_0.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt_0.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-      ts_ += (end - start);
-    }
+    ts_ += time_event(evt_0);
 
     for (auto evt : evts) {
-      const sycl::cl_ulong start =
-        evt.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-      ts_ += (end - start);
+      ts_ += time_event(evt);
     }
 
-    {
-      const sycl::cl_ulong start =
-        evt_1.get_profiling_info<sycl::info::event_profiling::command_start>();
-      const sycl::cl_ulong end =
-        evt_1.get_profiling_info<sycl::info::event_profiling::command_end>();
-
-      ts_ += (end - start);
-    }
+    ts_ += time_event(evt_1);
 
     *ts = ts_;
   }
