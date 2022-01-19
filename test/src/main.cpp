@@ -9,8 +9,12 @@ rust_blake3(uint8_t* input, uint64_t i_size);
 int
 main()
 {
-  sycl::device d{ sycl::default_selector{} };
-  sycl::queue q{ d };
+  sycl::default_selector sel{};
+  sycl::device d{ sel };
+  // using explicit context, instead of relying on default context created by
+  // sycl::queue
+  sycl::context ctx{ d };
+  sycl::queue q{ ctx, d };
 
   const size_t chunk_count = 1 << 10;
   const size_t wg_size = 1 << 6;

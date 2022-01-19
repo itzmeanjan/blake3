@@ -137,7 +137,13 @@ docker run blake3-test
 
 ## Benchmark
 
-Following benchmark results denote what was only kernel execution time ( on accelerator ) when computing BLAKE3 hash ( v1 & v2 ) using SYCL implementation and input was of given size on first column. Input is prepared on host; then explicitly transferred to accelerator because I'm using `sycl::malloc_host` and `sycl::malloc_device` for heap allocation; finally computed BLAKE3 digest ( i.e. 32 -bytes ) is transferred back to host. Though none of these data transfer cost are included in following numbers presented. For benchmarking purposes, I enable profiling in SYCL queue and sum of all differences between kernel enqueue event's start and end times are taken. I've also used a SYCL work-group size of 32 for each of these executions rounds; total of 4 rounds are executed for each row before taking average of obtained kernel execution time.
+Following benchmark results denote what was 
+
+- kernel execution time
+- time required to transfer input bytes to device
+- time needed to transfer 32 -bytes digest back to host
+
+when computing BLAKE3 hash ( v1 & v2 ) using SYCL implementation and input was of given size on first column. Input is generated on host; then explicitly transferred to accelerator because I'm using `sycl::malloc_host` and `sycl::malloc_device` for heap allocation; finally computed BLAKE3 digest ( i.e. 32 -bytes ) is transferred back to host. *None of these data transfer costs are included in kernel execution time*. For benchmarking purposes, I enable profiling in SYCL queue and sum of all differences between kernel enqueue event's start and end times are taken. I've also used a SYCL work-group size of 32 for each of these executions rounds; total of 8 rounds are executed for each row before taking average of obtained kernel execution time/ host <-> device data transfer time.
 
 - [On Nvidia GPU](./results/nvidia_gpu.md)
 - [On Intel GPU](./results/intel_gpu.md)
