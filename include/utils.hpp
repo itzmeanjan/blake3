@@ -1,5 +1,5 @@
 #pragma once
-#include "blake3.hpp"
+#include "blake3_consts.hpp"
 #include <CL/sycl.hpp>
 
 void
