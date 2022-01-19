@@ -8,7 +8,7 @@ enum BLAKE3_VARIANT
   V2
 };
 
-sycl::cl_ulong
+double
 avg_kernel_exec_tm(sycl::queue& q,
                    size_t chunk_count,
                    size_t wg_size,
@@ -16,22 +16,26 @@ avg_kernel_exec_tm(sycl::queue& q,
                    BLAKE3_VARIANT variant);
 
 std::string
-to_readable_timespan(sycl::cl_ulong ts);
+to_readable_timespan(double ts);
 
 int
 main(int argc, char** argv)
 {
-  sycl::device d{ sycl::default_selector{} };
+  sycl::default_selector sel{};
+  sycl::device d{ sel };
+  // using explicit context, instead of relying on default context created by
+  // sycl::queue
+  sycl::context ctx{ d };
   // enabling profiling in queue is required when benchmarking blake3
   // implementation
-  sycl::queue q{ d, sycl::property::queue::enable_profiling() };
+  sycl::queue q{ ctx, d, sycl::property::queue::enable_profiling() };
 
   std::cout << "running on " << d.get_info<sycl::info::device::name>()
             << std::endl
             << std::endl;
 
   const size_t wg_size = 1 << 5;
-  const size_t itr_cnt = 1 << 2;
+  const size_t itr_cnt = 1 << 3;
 
   std::cout << "Benchmarking BLAKE3 SYCL implementation (v1)" << std::endl
             << std::endl;
@@ -66,7 +70,7 @@ main(int argc, char** argv)
   return 0;
 }
 
-sycl::cl_ulong
+double
 avg_kernel_exec_tm(sycl::queue& q,
                    size_t chunk_count,
                    size_t wg_size,
@@ -85,11 +89,11 @@ avg_kernel_exec_tm(sycl::queue& q,
     }
   }
 
-  return ts / static_cast<sycl::cl_ulong>(itr_cnt);
+  return (double)ts / (double)itr_cnt;
 }
 
 std::string
-to_readable_timespan(sycl::cl_ulong ts)
+to_readable_timespan(double ts)
 {
   return ts >= 1e9 ? std::to_string(ts * 1e-9) + " s"
                    : ts >= 1e6 ? std::to_string(ts * 1e-6) + " ms"
