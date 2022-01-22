@@ -9,6 +9,11 @@ benchmark_merklize(sycl::queue& q,
                    size_t wg_size,
                    sycl::cl_ulong* const ts)
 {
+  // this implementation is only helpful when
+  // relatively large number of leaf nodes are
+  // required to be merklized
+  assert(leaf_cnt >= (1 << 20));
+
   const size_t i_size = leaf_cnt << 5;
   const size_t o_size = leaf_cnt << 5;
 
@@ -43,8 +48,7 @@ benchmark_merklize(sycl::queue& q,
   evt_1.wait();
   ts_2 = time_event(evt_1);
 
-// ensuring that first 32 -bytes are never touched by any work-items
-#pragma unroll 8
+  // ensuring that first 32 -bytes are never touched by any work-items
   for (size_t i = 0; i < (blake3::OUT_LEN >> 2); i++) {
     assert(*(o_h + i) == 0);
   }

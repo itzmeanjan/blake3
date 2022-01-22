@@ -1,11 +1,13 @@
 #include "bench_blake3.hpp"
+#include "bench_merklize.hpp"
 #include <iomanip>
 #include <iostream>
 
-enum BLAKE3_VARIANT
+enum BENCH_VARIANT
 {
   V1,
-  V2
+  V2,
+  MERKLIZATION
 };
 
 void
@@ -13,7 +15,7 @@ avg_kernel_exec_tm(sycl::queue& q,
                    size_t chunk_count,
                    size_t wg_size,
                    size_t itr_cnt,
-                   BLAKE3_VARIANT variant,
+                   BENCH_VARIANT variant,
                    double* const ts);
 
 std::string
@@ -49,7 +51,7 @@ main(int argc, char** argv)
             << std::endl;
 
   for (size_t i = 1 << 10; i <= 1 << 20; i <<= 1) {
-    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V1, ts);
+    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BENCH_VARIANT::V1, ts);
 
     std::cout << std::setw(20) << std::right << ((i * blake3::CHUNK_LEN) >> 20)
               << " MB"
@@ -69,7 +71,7 @@ main(int argc, char** argv)
             << std::endl;
 
   for (size_t i = 1 << 10; i <= 1 << 20; i <<= 1) {
-    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BLAKE3_VARIANT::V2, ts);
+    avg_kernel_exec_tm(q, i, wg_size, itr_cnt, BENCH_VARIANT::V2, ts);
 
     std::cout << std::setw(20) << std::right << ((i * blake3::CHUNK_LEN) >> 20)
               << " MB"
@@ -80,18 +82,44 @@ main(int argc, char** argv)
               << std::endl;
   }
 
+  std::cout << "\nBenchmarking Binary Merklization using BLAKE3" << std::endl
+            << std::endl;
+  std::cout << std::setw(16) << std::right << "leaf count"
+            << "\t\t" << std::setw(16) << std::right << "execution time"
+            << "\t\t" << std::setw(16) << std::right << "host-to-device tx time"
+            << "\t\t" << std::setw(16) << std::right << "device-to-host tx time"
+            << std::endl;
+
+  for (size_t i = 20; i <= 25; i++) {
+    const size_t leaf_cnt = 1 << i;
+
+    avg_kernel_exec_tm(
+      q, leaf_cnt, wg_size, itr_cnt, BENCH_VARIANT::MERKLIZATION, ts);
+
+    std::cout << std::setw(12) << std::right << "2 ^ " << i << "\t\t"
+              << std::setw(22) << std::right << to_readable_timespan(*(ts + 1))
+              << "\t\t" << std::setw(22) << std::right
+              << to_readable_timespan(*(ts + 0)) << "\t\t" << std::setw(22)
+              << std::right << to_readable_timespan(*(ts + 2)) << std::endl;
+  }
+
   std::free(ts);
 
   return 0;
 }
 
 void
-avg_kernel_exec_tm(sycl::queue& q,
-                   size_t chunk_count,
-                   size_t wg_size,
-                   size_t itr_cnt,
-                   BLAKE3_VARIANT variant,
-                   double* const ts)
+avg_kernel_exec_tm(
+  sycl::queue& q,
+  // when bench variant is either of v1/ v2, it's considered to be chunk count
+  //
+  // while the variant is merklization, it's considered to be leaf count of
+  // merkle tree
+  size_t chunk_or_leaf_count,
+  size_t wg_size,
+  size_t itr_cnt,
+  BENCH_VARIANT variant,
+  double* const ts)
 {
   // allocate memory on host
   sycl::cl_ulong* ts_sum =
@@ -103,12 +131,14 @@ avg_kernel_exec_tm(sycl::queue& q,
   std::memset(ts_sum, 0, sizeof(sycl::cl_ulong) * 3);
 
   for (size_t i = 0; i < itr_cnt; i++) {
-    if (variant == BLAKE3_VARIANT::V1) {
-      benchmark_blake3_v1(q, chunk_count, wg_size, ts_rnd);
-    } else if (variant == BLAKE3_VARIANT::V2) {
-      benchmark_blake3_v2(q, chunk_count, wg_size, ts_rnd);
+    if (variant == BENCH_VARIANT::V1) {
+      benchmark_blake3_v1(q, chunk_or_leaf_count, wg_size, ts_rnd);
+    } else if (variant == BENCH_VARIANT::V2) {
+      benchmark_blake3_v2(q, chunk_or_leaf_count, wg_size, ts_rnd);
+    } else if (variant == BENCH_VARIANT::MERKLIZATION) {
+      benchmark_merklize(q, chunk_or_leaf_count, wg_size, ts_rnd);
     } else {
-      throw "can't benchmark unsupported BLAKE3 variant";
+      throw "can't benchmark unknown variant";
     }
 
     for (size_t j = 0; j < 3; j++) {
