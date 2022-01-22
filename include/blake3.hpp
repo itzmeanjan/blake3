@@ -59,6 +59,17 @@ compress(const sycl::uint* in_cv,
          sycl::uint flags,
          sycl::uint* const out_cv);
 
+// Merges two BLAKE3 digests ( 64 -bytes ) into single digest of 32 -bytes
+//
+// As input two BLAKE3 digests are provided in byte concatenated form
+// where first 32 -bytes is considered to be left node ( of Merkle Tree ) &
+// remaining 32 -bytes considered to be right node of Merkle Tree, merging them
+// using 2-to-1 hashing technique produces single digest of 32 -bytes, which can
+// be considered root of these two child nodes
+void
+merge(sycl::uint* const __restrict msg_words,
+      sycl::uint* const __restrict out_cv);
+
 void
 chunkify(const sycl::uint* key_words,
          sycl::ulong chunk_counter,
@@ -1688,6 +1699,62 @@ blake3::v1::compress(const sycl::uint* in_cv,
     auto priv_out_cv = sycl::private_ptr<sycl::uint>(out_cv);
     state[0].store(0, priv_out_cv);
     state[1].store(1, priv_out_cv);
+  }
+}
+
+inline void
+blake3::v1::merge(sycl::uint* const __restrict msg_words,
+                  sycl::uint* const __restrict out_cv)
+{
+  sycl::uint4 state[4] = { sycl::uint4(IV[0], IV[1], IV[2], IV[3]),
+                           sycl::uint4(IV[4], IV[5], IV[6], IV[7]),
+                           sycl::uint4(IV[0], IV[1], IV[2], IV[3]),
+                           sycl::uint4(
+                             0, 0, BLOCK_LEN, CHUNK_START | CHUNK_END | ROOT) };
+
+  // round 1
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 2
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 3
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 4
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 5
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 6
+  blake3::v1::round(state, msg_words);
+  blake3::permute(msg_words);
+
+  // round 7
+  blake3::v1::round(state, msg_words);
+  // no need to permute message words anymore !
+
+  state[0] ^= state[2];
+  state[1] ^= state[3];
+  // following two lines don't dictate output chaining value
+  // of this chunk, so they can be safely commented out !
+  // state[2] ^= cv0;
+  // state[3] ^= cv1;
+  // see
+  // https://github.com/BLAKE3-team/BLAKE3/blob/da4c792/reference_impl/reference_impl.rs#L118
+
+  // output chaining value of this chunk is cryptographic
+  // digest of 64 input bytes
+  {
+    auto out_cv_ptr = sycl::private_ptr<sycl::uint>(out_cv);
+    state[0].store(0, out_cv_ptr);
+    state[1].store(1, out_cv_ptr);
   }
 }
 
