@@ -25,17 +25,14 @@ merklize(sycl::queue& q,
   // only tree with power of 2 many leaf nodes
   // can be merklized
   assert((leaf_cnt & (leaf_cnt - 1)) == 0);
-  // this implementation is only helpful when
-  // relatively large number of leaf nodes are required
-  // to be merklized
-  assert(leaf_cnt >= (1 << 20));
 
   const size_t work_item_cnt = leaf_cnt >> 1;
   assert(wg_size <= work_item_cnt);
   assert(work_item_cnt % wg_size == 0);
 
+  const size_t elm_cnt = o_size >> 2;
   const size_t i_offset = 0;
-  const size_t o_offset = (leaf_cnt >> 1) << 3;
+  const size_t o_offset = elm_cnt >> 1;
 
   sycl::event evt_0 = q.submit([&](sycl::handler& h) {
     h.depends_on(evts);
@@ -46,8 +43,17 @@ merklize(sycl::queue& q,
       [=](sycl::nd_item<1> it) {
         const size_t idx = it.get_global_linear_id();
 
-        blake3::v1::merge(leaf_nodes + i_offset + (idx << 4),
-                          intermediates + o_offset + (idx << 3));
+        // copy message words to array allocated on private memory
+        // because these message words are permuted, when `blake3::merge`
+        // function is invoked
+        sycl::uint msg_words[16];
+
+#pragma unroll 16 // attempt to fully parallelize the loop !
+        for (size_t i = 0; i < 16; i++) {
+          msg_words[i] = *(leaf_nodes + i_offset + (idx << 4) + i);
+        }
+
+        blake3::v1::merge(msg_words, intermediates + o_offset + (idx << 3));
       });
   });
 
@@ -68,12 +74,12 @@ merklize(sycl::queue& q,
     sycl::event evt_1 = q.submit([&](sycl::handler& h) {
       h.depends_on(evts_0.at(r));
 
-      const size_t work_item_cnt_ = leaf_cnt >> (r + 1);
+      const size_t work_item_cnt_ = work_item_cnt >> (r + 1);
       const size_t wg_size_ =
         wg_size <= work_item_cnt_ ? wg_size : work_item_cnt_;
 
       const size_t i_offset_ = o_offset >> r;
-      const size_t o_offset_ = i_offset_ >> (r + 1);
+      const size_t o_offset_ = i_offset_ >> 1;
 
       h.parallel_for<class kernelBinaryMerklizationUsingBLAKE3Phase1>(
         sycl::nd_range<1>{ sycl::range<1>{ work_item_cnt_ },
@@ -81,8 +87,17 @@ merklize(sycl::queue& q,
         [=](sycl::nd_item<1> it) {
           const size_t idx = it.get_global_linear_id();
 
-          blake3::v1::merge(intermediates + i_offset_ + (idx << 4),
-                            intermediates + o_offset_ + (idx << 3));
+          // copy message words to array allocated on private memory
+          // because these message words are permuted, when `blake3::merge`
+          // function is invoked
+          sycl::uint msg_words[16];
+
+#pragma unroll 16 // attempt to fully parallelize the loop !
+          for (size_t i = 0; i < 16; i++) {
+            msg_words[i] = *(intermediates + i_offset_ + (idx << 4) + i);
+          }
+
+          blake3::v1::merge(msg_words, intermediates + o_offset_ + (idx << 3));
         });
     });
     evts_0.push_back(evt_1);
