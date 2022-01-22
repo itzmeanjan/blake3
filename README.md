@@ -9,7 +9,9 @@ SYCL -backed Rescue Prime implementation shines when there are lots of (short) i
 
 On the other hand SYCL implementation of BLAKE3 performs good when (single) input size is >= 1MB, then each 1KB chunk of input can be compressed parallelly --- very good fit for data parallel acceleration. After that BLAKE3 is simply Binary Merkle Tree construction, which itself is highly parallelizable, _though multi-phase kernel enqueue required (increasing host-device interaction) due to hierarchical structure of Binary Merkle Tree, which results into data dependence_.
 
-In following implementation I heavily use SYCL2020's USM, which allows me to work with much familiar pointer arithmetics. I also use SYCL's vector intrinsics ( i.e. 4 -element array of type `sycl::uint4` ) for representing/ operating on hash state of BLAKE3. Another way to accelerate BLAKE3 (as proposed in specification) is compressing multiple chunks in parallel by distributing hash state of those participating chunks across 16 vectors, each with N -lanes, where N = # -of chunks being compressed together. N can generally be {2, 4, 8, 16}. I've implemented that scheme under namespace `blake3::v2::*`, while simpler variant is placed under namespace `blake3::v1::*`. 
+In following implementation I heavily use SYCL2020's USM, which allows me to work with much familiar pointer arithmetics. I also use SYCL's vector intrinsics ( i.e. 4 -element array of type `sycl::uint4` ) for representing/ operating on hash state of BLAKE3. Another way to accelerate BLAKE3 (as proposed in specification) is compressing multiple chunks in parallel by distributing hash state of those participating chunks across 16 vectors, each with N -lanes, where N = # -of chunks being compressed together. N can generally be {2, 4, 8, 16}. I've implemented that scheme under namespace `blake3::v2::*`, while simpler variant is placed under namespace `blake3::v1::*`.
+
+I've also written Binary Merklization implementation using BLAKE3 2-to-1 hash function, which takes N -many leaf nodes of some binary tree and produces all intermediate nodes. Note, here `N = 2 ^ i | i = {1, 2, ...}`. For binary merklization, each BLAKE3 hash invocation takes 64 -bytes of input and produces 32 -bytes of output. Those 64 -bytes of input is nothing but two concatenated BLAKE3 digests.
 
 **I strongly suggest you go through (hyperlinked below) BLAKE3 specification's section 5.3 for understanding where I got this idea from.**
 
@@ -101,6 +103,8 @@ int main() {
 }
 ```
 
+For Binary Merklization implementation consider including [merklize.hpp](./include/merklize.hpp) into your SYCL project. You may want to see [this](https://github.com/itzmeanjan/blake3/blob/d4085fcbb77dbbb8ce2b0748e0b973889044a8ff/include/bench_merklize.hpp#L42-L55) for example.
+
 ## Test
 
 For executing accompanying test cases run
@@ -112,12 +116,13 @@ BLAKE3_SIMD_LANES=8 make; make clean
 BLAKE3_SIMD_LANES=16 make; make clean
 ```
 
-which prepares random input of 1MB; then applies BLAKE3 using [Rust implementation](https://docs.rs/blake3/1.2.0/blake3) and both of my [SYCL implementations of BLAKE3](https://github.com/itzmeanjan/blake3/blob/b459e95539fbc203f48bccbccd356ff21c1a59b6/include/blake3.hpp). Finally both of these 32 -bytes digests are asserted. ✅
+which prepares random input of 1MB; then applies BLAKE3 using [Rust implementation](https://docs.rs/blake3/1.2.0/blake3) and both of my [SYCL implementations of BLAKE3](https://github.com/itzmeanjan/blake3/blob/b459e95539fbc203f48bccbccd356ff21c1a59b6/include/blake3.hpp). Finally both of these 32 -bytes digests are asserted. It also asserts BLAKE3 2-to-1 hashing implementation which is used for Binary Merklization. ✅
 
 Implementation | Comment
 --- | ---
 `blake3::v1::hash(...)` | Each SYCL work-item compresses one and only one chunk
 `blake3::v2::hash(...)` | Each SYCL work-item can compress either 2/ 4/ 8/ 16 contiguous chunks; selectable using `BLAKE3_SIMD_LANES`
+`blake3::v1::merge(...)` | Takes 64 -bytes input ( two BLAKE3 digests ) and produces 32 -bytes output digest, it's called BLAKE3 2-to-1 hashing, which is used in Binary Merklization
 
 ## Dockerised Testing
 
@@ -137,14 +142,38 @@ docker run blake3-test
 
 ## Benchmark
 
+### BLAKE3 Hash Function
+
 Following benchmark results denote what was 
 
 - kernel execution time
 - time required to transfer input bytes to device
 - time needed to transfer 32 -bytes digest back to host
 
-when computing BLAKE3 hash ( v1 & v2 ) using SYCL implementation and input was of given size on first column. Input is generated on host; then explicitly transferred to accelerator because I'm using `sycl::malloc_host` and `sycl::malloc_device` for heap allocation; finally computed BLAKE3 digest ( i.e. 32 -bytes ) is transferred back to host. *None of these data transfer costs are included in kernel execution time*. For benchmarking purposes, I enable profiling in SYCL queue and sum of all differences between kernel enqueue event's start and end times are taken. I've also used a SYCL work-group size of 32 for each of these executions rounds; total of 8 rounds are executed for each row before taking average of obtained kernel execution time/ host <-> device data transfer time.
+when computing BLAKE3 hash ( v1 & v2 ) using SYCL implementation and input was of given size on first column. Input is generated on host; then explicitly transferred to accelerator because I'm using `sycl::malloc_host` and `sycl::malloc_device` for heap allocation; finally computed BLAKE3 digest ( i.e. 32 -bytes ) is transferred back to host. *None of these data transfer costs are included in kernel execution time*. For benchmarking purposes, I enable profiling in SYCL queue and sum of all differences between kernel enqueue event's start and end times are taken. I've also used a static SYCL work-group size of 32 for each of these executions rounds; total of 8 rounds are executed for each row before taking average of obtained kernel execution time/ host <-> device data transfer time.
 
 - [On Nvidia GPU](./results/nvidia_gpu.md)
 - [On Intel GPU](./results/intel_gpu.md)
 - [On Intel CPU](./results/intel_cpu.md)
+
+### Binary Merklization using BLAKE3 2-to-1 Hash Function
+
+Below I'm presenting benchmark results of Binary Merklization using BLAKE3 2-to-1 hashing. Four columns which are shown are as follows
+
+
+Field | Description
+--- | ---
+leaf count | input binary tree's leaf count [ `note, this is always power of 2` ]
+execution time | time spent executing all kernels which are enqueued for computing all intermediate nodes of specified binary tree with N -many leaf nodes
+host-to-device data tx cost | time required to transfer (leaf_count << 5) -bytes random input to accelerator [ `because each leaf node is a BLAKE3 digest` ]
+device-to-host data tx cost | time spent on transferring back all (leaf_count - 1) -many intermediate nodes back to host
+
+I prepare random input of (leaf_count << 5) -bytes on host, which is explicitly transferred to accelerator using SYCL USM API. As soon as input is ready to be operated on, binary merklization begins and computes all intermediate nodes of Merkle Tree in multiple rounds. At end, all these intermediate nodes are brought back to host. I've enabled SYCL queue profiling, which I make use of for timing all events, I get after enqueuing commands i.e. data transfer/ kernel execution etc..
+
+> Note, this Binary Merklization implementation only works with leaf count which is power of 2 value.
+
+> For all these benchmarking, I'm using static SYCL work-group size 32. [ **changing it to runtime decision should be explored !** ]
+
+- [On Nvidia GPU](./results/merklization/nvidia_gpu.md)
+- [On Intel GPU](./results/merklization/intel_gpu.md)
+- [On Intel CPU](./results/merklization/intel_cpu.md)
