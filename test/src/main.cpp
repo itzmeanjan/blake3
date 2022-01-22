@@ -101,8 +101,18 @@ main()
   // compute 2-to-1 hash using RUST blake3 implementation
   uint8_t* merge_digest = rust_blake3(merge_in_0, merge_i_size);
   // enqueue kernel for computing blake3::merge on accelerator
-  q.single_task<class kernelTestBLAKE3Merge>(
-     [=]() { blake3::v1::merge(merge_in_d, merge_out_d); })
+  q.single_task<class kernelTestBLAKE3Merge>([=]() {
+     sycl::uint msg_words[16];
+
+#pragma unroll 16
+     for (size_t i = 0; i < 16; i++) {
+       // I'm copying input because merge function
+       // permutes input message words !
+       msg_words[i] = *(merge_in_d + i);
+     }
+
+     blake3::v1::merge(merge_in_d, merge_out_d);
+   })
     .wait();
 
   // copy blake3 merge computed on device back to host
