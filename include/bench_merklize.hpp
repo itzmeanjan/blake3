@@ -17,12 +17,14 @@ benchmark_merklize(sycl::queue& q,
   const size_t i_size = leaf_cnt << 5;
   const size_t o_size = leaf_cnt << 5;
 
-  sycl::uint* i_h = static_cast<sycl::uint*>(std::malloc(i_size));
-  sycl::uint* o_h = static_cast<sycl::uint*>(std::malloc(o_size));
+  // allocate resources
+  sycl::uint* i_h = static_cast<sycl::uint*>(sycl::malloc_host(i_size, q));
+  sycl::uint* o_h = static_cast<sycl::uint*>(sycl::malloc_host(o_size, q));
   sycl::uint* i_d = static_cast<sycl::uint*>(sycl::malloc_device(i_size, q));
   sycl::uint* o_d = static_cast<sycl::uint*>(sycl::malloc_device(o_size, q));
 
-  // set all intermediate nodes with zero bytes,
+  // Set all intermediate nodes to zero bytes,
+  //
   // I'll make use of this fact later to assert that first 32 -bytes will never
   // be touched by any work-item
   q.memset(o_d, 0, o_size).wait();
@@ -37,15 +39,19 @@ benchmark_merklize(sycl::queue& q,
 
   sycl::cl_ulong ts_0, ts_1, ts_2;
 
+  // copy input from host to device
   sycl::event evt_0 = q.memcpy(i_d, i_h, i_size);
   evt_0.wait();
+  // time host to device tx command
   ts_0 = time_event(evt_0);
 
-  ts_1 =
-    merklize(q, i_d, i_size, leaf_cnt, o_d, o_size, leaf_cnt - 1, wg_size, {});
+  // merklization, get sum of all dispatched kernel execution time
+  ts_1 = merklize(q, i_d, i_size, leaf_cnt, o_d, o_size, leaf_cnt - 1, wg_size);
 
+  // copy output from device to host
   sycl::event evt_1 = q.memcpy(o_h, o_d, o_size);
   evt_1.wait();
+  // time device to host data tx command
   ts_2 = time_event(evt_1);
 
   // ensuring that first 32 -bytes are never touched by any work-items
@@ -53,8 +59,9 @@ benchmark_merklize(sycl::queue& q,
     assert(*(o_h + i) == 0);
   }
 
-  std::free(i_h);
-  std::free(o_h);
+  // ensure all acquired resources are deallocated too !
+  sycl::free(i_h, q);
+  sycl::free(o_h, q);
   sycl::free(i_d, q);
   sycl::free(o_d, q);
 

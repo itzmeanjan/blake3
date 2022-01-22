@@ -9,8 +9,7 @@ merklize(sycl::queue& q,
          sycl::uint* const __restrict intermediates,
          size_t o_size, // intermediate nodes size in bytes
          size_t itmd_cnt,
-         size_t wg_size,
-         std::vector<sycl::event> evts)
+         size_t wg_size)
 {
   // A binary merkle tree with N -many leaf
   // nodes should have N-1 -many intermediates
@@ -35,8 +34,6 @@ merklize(sycl::queue& q,
   const size_t o_offset = elm_cnt >> 1;
 
   sycl::event evt_0 = q.submit([&](sycl::handler& h) {
-    h.depends_on(evts);
-
     h.parallel_for<class kernelBinaryMerklizationUsingBLAKE3Phase0>(
       sycl::nd_range<1>{ sycl::range<1>{ work_item_cnt },
                          sycl::range<1>{ wg_size } },
